@@ -24,7 +24,15 @@ nav = [
   { "Examples" = [
     { "Build with from NOD-MEG" = "example/nod-neurovision.md" },
   ]},
-  { "API Reference" = "api.md" },
+  { "API Reference" = [
+    { "Overview" = "api.md" },
+    { "Core" = "api/core.md" },
+    { "IO" = "api/io.md" },
+    { "Neuro" = "api/neuro.md" },
+    { "Vision" = "api/vision.md" },
+    { "Datasets" = "api/datasets.md" },
+    { "Viz" = "api/viz.md" },
+  ]},
   { "Contributing" = "contribute.md" },
   { "Security" = "security.md" },
   { "Changelog" = "changelog.md" },
