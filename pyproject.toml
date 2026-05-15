@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vneurotk"
+dynamic = ["version"]
+description = "A python toolkit for visual neuroscience"
+readme = "README.md"
+authors = [
+  {name = "Guohao Zhang", email = "guohao2045@gmail.com"}
+]
+maintainers = [
+  {name = "Guohao Zhang", email = "guohao2045@gmail.com"}
+]
+classifiers = [
+    "Typing :: Typed",
+]
+license = {text = "MIT"}
+
+requires-python = ">= 3.11"
+dependencies = [
+  "h5py",
+  "httpx",
+  "loguru",
+  "numpy",
+  "pandas",
+  "pillow",
+  "pooch",
+  "rich",
+  "scipy",
+  "tqdm",
+  "transformers",
+  "typer",
+]
+
+[project.optional-dependencies]
+mne = ["mne", "mne-bids"]
+notebook = ["ipykernel", "ipywidgets"]
+timm = ["timm"]
+thingsvision = ["thingsvision>=1.4.4"]
+cebra = ["cebra>=0.6.0", "trialcebra>=0.0.5"]
+
+[dependency-groups]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "typecheck" },
+    { include-group = "docs" },
+]
+
+lint = [
+    "ruff",
+]
+test = [
+    "coverage",
+    "pytest",
+]
+typecheck = [
+    "ty",
+]
+docs = [
+    "zensical",
+    "mkdocstrings-python",
+    "nbconvert",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[project.urls]
+bugs = "https://github.com/colehank/vneurotk/issues"
+changelog = "https://github.com/colehank/vneurotk/releases"
+documentation = "https://colehank.github.io/vneurotk/"
+homepage = "https://github.com/colehank/vneurotk"
+
+[project.scripts]
+vneurotk = "vneurotk.cli:app"
+
+[tool.ty]
+# All rules are enabled as "error" by default; no need to specify unless overriding.
+# unresolved-import: optional extras (torch, mne, scipy, matplotlib, timm) are not
+# installed in the typecheck environment, so downgrade to warn instead of error.
+
+[tool.ty.rules]
+unresolved-import = "warn"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["src/", "tests/"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 50
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@overload",
+    "@typing.overload",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.uv]
+package = true
+default-groups = []

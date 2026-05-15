@@ -1,0 +1,49 @@
+[project]
+site_name = "vneurotk"
+site_url = "https://colehank.github.io/VneuroTK/"
+repo_url = "https://github.com/colehank/vneurotk"
+repo_name = "colehank/vneurotk"
+
+features = [
+  "navigation.indexes",
+  "navigation.top",
+  "content.code.copy",
+  "content.tooltips",
+]
+
+nav = [
+  { "Home" = "index.md" },
+  { "Installation" = "installation.md" },
+  { "Usage" = [
+    { "Overview" = "usage.md" },
+    { "Path system of vneurotk" = "usage/path.md"},
+    { "Build vneurotk data" = "usage/data.md"},
+    { "Vision features (standalone)" = "usage/vision_alone.md"},
+    { "Vision features (with data)" = "usage/vision_union.md"},
+  ]},
+  { "Examples" = [
+    { "Build with from NOD-MEG" = "example/nod-neurovision.md" },
+  ]},
+  { "API Reference" = "api.md" },
+  { "Contributing" = "contribute.md" },
+  { "Security" = "security.md" },
+  { "Changelog" = "changelog.md" },
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
