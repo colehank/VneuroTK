@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
 from loguru import logger
+
+if TYPE_CHECKING:
+    import torch  # type: ignore
 
 from vneurotk.vision.meta import ModelInfo
 from vneurotk.vision.model.backend.base import BaseBackend
@@ -49,8 +51,8 @@ class TimmBackend(BaseBackend):
             Load pretrained weights.
         """
         try:
-            import timm
-            from timm.data import create_transform, resolve_data_config
+            import timm  # type: ignore
+            from timm.data import create_transform, resolve_data_config  # type: ignore
         except ImportError as exc:
             raise ImportError("timm is required for TimmBackend.  Install with: uv add timm") from exc
 
@@ -78,7 +80,7 @@ class TimmBackend(BaseBackend):
         dict[str, Any]
             ``{"pixel_values": Tensor}`` with shape ``(B, C, H, W)``.
         """
-        import torch
+        import torch  # type: ignore
 
         imgs = self._load_images(image)
         if self._transform is None:

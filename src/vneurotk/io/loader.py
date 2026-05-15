@@ -539,7 +539,7 @@ def _build_bd_from_mne_raw(raw: Any, source_file: str) -> BaseData:
 def _load_from_mne(path: MNEPath) -> BaseData:
     """Load data from MNE raw file (lazy by default)."""
     try:
-        import mne
+        import mne  # type: ignore
     except ImportError as e:
         raise ImportError("mne is required for loading MNE data") from e
 
@@ -564,7 +564,7 @@ def _load_from_mne(path: MNEPath) -> BaseData:
 def _load_from_bids(path: BIDSPath) -> BaseData:
     """Load data from BIDS dataset (lazy by default)."""
     try:
-        from mne_bids import read_raw_bids
+        from mne_bids import read_raw_bids  # type: ignore
     except ImportError as e:
         raise ImportError("mne_bids is required for loading BIDS data") from e
 

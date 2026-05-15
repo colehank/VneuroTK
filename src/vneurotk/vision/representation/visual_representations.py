@@ -260,10 +260,11 @@ class VisualRepresentations:
             Module name.
         """
         try:
-            import torch
+            import torch  # type: ignore
+
+            return torch.from_numpy(np.asarray(self.by_module(layer).array))
         except ImportError as exc:
             raise ImportError("torch is required for to_tensor()") from exc
-        return torch.from_numpy(np.asarray(self.by_module(layer).array))
 
     def select(self, ids: list | np.ndarray) -> VisualRepresentations:
         """Return a subset of stimuli by their IDs across all records.

@@ -1,7 +1,7 @@
 """vneurotk.vision.model — VisionModel and layer selection."""
 
 try:
-    import torch  # noqa: F401
+    import torch  # noqa: F401  # type: ignore
 except ImportError as _exc:
     raise ImportError(
         "vneurotk.vision.model requires torch + transformers.  Install with: uv add 'vneurotk[vision]'."

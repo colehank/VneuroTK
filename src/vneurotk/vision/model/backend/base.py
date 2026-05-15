@@ -14,12 +14,14 @@ import contextlib
 import re
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
-import torch.nn as nn
 from loguru import logger
-from torch import Tensor
+
+if TYPE_CHECKING:
+    import torch  # type: ignore
+    import torch.nn as nn  # type: ignore
+    from torch import Tensor  # type: ignore
 
 from vneurotk.vision.meta import ModelInfo, ModuleInfo
 
@@ -40,6 +42,8 @@ class BaseBackend(ABC):
     """
 
     def __init__(self, device: str | torch.device = "cpu") -> None:
+        import torch  # type: ignore
+
         self.device = torch.device(device)
         self.model: nn.Module | None = None
         self._hooks: list[Any] = []
@@ -284,4 +288,6 @@ class BaseBackend(ABC):
 
     def _move_to_device(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Move all Tensor values in *inputs* to :attr:`device`."""
+        from torch import Tensor  # type: ignore
+
         return {k: v.to(self.device) if isinstance(v, Tensor) else v for k, v in inputs.items()}

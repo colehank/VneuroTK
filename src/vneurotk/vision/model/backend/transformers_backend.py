@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
 from loguru import logger
-from torch import Tensor
+
+if TYPE_CHECKING:
+    import torch  # type: ignore
 
 from vneurotk.vision.meta import ModelInfo
 from vneurotk.vision.model.backend.base import BaseBackend
@@ -50,6 +51,8 @@ class TransformersBackend(BaseBackend):
         pretrained : bool
             If ``False``, load with randomized weights (for testing).
         """
+        import torch  # type: ignore
+
         try:
             from transformers import (
                 AutoModel,
@@ -81,12 +84,12 @@ class TransformersBackend(BaseBackend):
 
         self.model.eval()
         try:
-            self.model.to(self.device)  # ty: ignore[invalid-argument-type]
+            self.model.to(self.device)
         except (ValueError, RuntimeError) as e:
             if self.device.type != "cpu":
                 logger.warning("Moving model to {} failed ({}), falling back to CPU", self.device, e)
                 self.device = torch.device("cpu")
-                self.model.to(self.device)  # ty: ignore[invalid-argument-type]
+                self.model.to(self.device)
             else:
                 raise
 
@@ -129,6 +132,8 @@ class TransformersBackend(BaseBackend):
         if self.model is None:
             raise RuntimeError("Model not loaded. Call load() first.")
         moved = self._move_to_device(inputs)
+        import torch  # type: ignore
+
         with torch.no_grad():
             return self.model(**moved)
 
@@ -154,7 +159,8 @@ class TransformersBackend(BaseBackend):
         self.remove_hooks()
         self._activations.clear()
 
-        import torch.nn as nn
+        import torch.nn as nn  # type: ignore
+        from torch import Tensor  # type: ignore
 
         named = dict(self.hookable_model.named_modules())
         missing = [n for n in layer_names if n not in named]

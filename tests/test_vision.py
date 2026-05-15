@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
-import torch.nn as nn
+import torch.nn as nn  # type: ignore
 
 from vneurotk.vision.meta import ModelInfo
 from vneurotk.vision.model.backend.base import BaseBackend, ModuleInfo
@@ -1604,7 +1604,7 @@ class TestPrepareImages:
 
 def _timm_installed():
     try:
-        import timm  # noqa: F401
+        import timm  # noqa: F401  # type: ignore
 
         return True
     except ImportError:
@@ -2320,9 +2320,7 @@ class TestModuleDepth:
 
     def test_select_uses_compiled_patterns(self):
         """BlockLevelSelector.select() still works correctly after refactor."""
-        import torch.nn as nn
-
-        from vneurotk.vision.model.selector import BlockLevelSelector
+        import torch.nn as nn  # type: ignore
 
         model = nn.Sequential(
             nn.Linear(4, 8),

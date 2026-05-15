@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    import mne
+    import mne  # type: ignore
 
 
 def get_event_samples(raw: mne.io.BaseRaw, event_name="stim_on") -> NDArray:
-    import mne
+    import mne  # type: ignore
 
     ev, evid = mne.events_from_annotations(raw)
     event_id = evid[event_name]

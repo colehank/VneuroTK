@@ -1,4 +1,4 @@
-import matplotlib.ticker as ticker
+import matplotlib.ticker as ticker  # type: ignore
 import numpy as np
 
 

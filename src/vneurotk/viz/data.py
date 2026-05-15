@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
 from loguru import logger
 

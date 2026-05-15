@@ -102,7 +102,7 @@ def setup_logging(
     )
 
     try:
-        import mne
+        import mne  # type: ignore
 
         mne.set_log_level(mne_level.upper())
         warnings.filterwarnings(

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
 from loguru import logger
+
+if TYPE_CHECKING:
+    import torch  # type: ignore
 
 from vneurotk.vision.meta import ModelInfo
 from vneurotk.vision.model.backend.base import BaseBackend
@@ -95,7 +97,7 @@ class ThingsVisionBackend(BaseBackend):
         dict[str, Any]
             ``{"pixel_values": Tensor}`` with shape ``(B, C, H, W)``.
         """
-        import torch
+        import torch  # type: ignore
 
         imgs = self._load_images(image)
         if self._transform is None:

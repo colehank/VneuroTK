@@ -410,7 +410,7 @@ class BIDSPath(VTKPath):
         """Initialize BIDS path wrapper."""
         super().__post_init__()
         try:
-            from mne_bids import BIDSPath as MNEBIDSPath
+            from mne_bids import BIDSPath as MNEBIDSPath  # type: ignore
 
             self._bids_path = MNEBIDSPath(
                 root=self.root,
