@@ -1,5 +1,5 @@
 [project]
-site_name = "vneurotk"
+site_name = "VneuroTK"
 site_url = "https://colehank.github.io/VneuroTK/"
 repo_url = "https://github.com/colehank/vneurotk"
 repo_name = "colehank/vneurotk"
@@ -10,6 +10,8 @@ features = [
   "content.code.copy",
   "content.tooltips",
 ]
+
+extra_css = ["stylesheets/extra.css"]
 
 nav = [
   { "Home" = "index.md" },
@@ -37,6 +39,10 @@ nav = [
   { "Security" = "security.md" },
   { "Changelog" = "changelog.md" },
 ]
+
+[project.theme]
+logo = "assets/logo.svg"
+favicon = "assets/logo.svg"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"

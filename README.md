@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="VneuroTK logo" width="300" align="right" />
+
 # VneuroTK
 
 ![PyPI version](https://img.shields.io/pypi/v/vneurotk.svg)

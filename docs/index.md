@@ -1,4 +1,4 @@
-# vneurotk
+# VneuroTK
 
 A Python toolkit for modern visual neuroscience.
 
