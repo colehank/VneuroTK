@@ -2,6 +2,18 @@
 
 `VisionModel` wraps `transformers`, `timm`, and `thingsvision` under a unified interface for layer-level activation extraction.
 
+Install the extra for the selected backend before constructing a model:
+
+| Backend | Extra | Example model ID |
+|---|---|---|
+| `transformers` | `vneurotk[vision]` | `facebook/dinov2-base` |
+| `timm` | `vneurotk[timm]` | `resnet50.a1_in1k` |
+| `thingsvision` | `vneurotk[thingsvision]` | backend/source-specific name |
+
+Model IDs are passed to the backend unchanged. Pretrained construction may
+access the network unless model weights and processor/config files are already
+cached. VneuroTK does not silently fall back to another backend or model.
+
 ## List cached models
 
 ```python

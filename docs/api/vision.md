@@ -2,6 +2,10 @@
 
 DNN vision representation module.
 
+## VisionData
+
+::: vneurotk.vision.data.VisionData
+
 ## VisionModel
 
 ::: vneurotk.vision.model.base.VisionModel
@@ -27,6 +31,8 @@ DNN vision representation module.
 ::: vneurotk.vision.image_source.ImageSource
 
 ## Metadata
+
+::: vneurotk.vision.meta.ExtractionProvenance
 
 ::: vneurotk.vision.meta.ModelInfo
 

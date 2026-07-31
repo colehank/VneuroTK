@@ -1,6 +1,23 @@
 # Build vneurotk data from different recordings
 
-`vtk.read()` accepts any path object and returns a `BaseData` with lazy-loaded neural data.
+`vtk.read()` accepts a filesystem path or a VneuroTK path object and returns a
+`BaseData` with lazy-loaded neural data. `BaseData.neuro` is a `NeuroData`
+container, not an `ndarray` subclass: use `data.neuro.data` for the underlying
+NumPy array. Its `.shape`, `.dtype`, `.ndim`, and `.size` attributes and
+`np.asarray(data.neuro)` are provided as conveniences.
+
+`BaseData` has three explicit modes:
+
+| Mode | Raw shape | Trial structure |
+|---|---|---|
+| `continuous` | `(n_samples, n_channels)` | Required before using `.epochs` |
+| `epochs` | `(n_trials, n_timebins, n_channels)` | Already trial-structured |
+| `patterns` | `(n_rows, n_channels)` | Aggregated rows; no trial arrays required |
+
+Use `BaseData.for_continuous(...)`, `BaseData.for_epochs(...)`, or
+`BaseData.for_patterns(...)` when a 2-D array's meaning should be explicit.
+Pattern rows need `trial_meta["stim_index"]` only when they must align with
+vision features.
 
 ## MEG (MNE-BIDS)
 
@@ -35,15 +52,17 @@ data.configure(
 **Access neural views** — `data.neuro` triggers lazy load:
 
 ```python
-neuro = data.neuro                 # NeuroData (np.ndarray subclass)
-neuro.epochs                       # (n_trials, n_timebins, nchan)
-neuro.continuous                   # (total_samples, nchan)
+neuro = data.neuro                 # NeuroData wrapper
+neuro.data                         # raw ndarray, (n_samples, n_channels)
+neuro.epochs                       # (n_trials, n_timebins, n_channels)
+neuro.continuous                   # (total_trial_samples, n_channels)
 ```
 
 **Save and reload**:
 
 ```python
-data.save(VTKPath(SAVE_ROOT, subject="01", session="ImageNet01", task="ImageNet", run="01"))
+save_path = VTKPath(SAVE_ROOT, subject="01", session="ImageNet01", task="ImageNet", run="01")
+data.save(save_path)
 
 loaded = vtk.read(save_path)
 # vision.db becomes LazyH5Dict — images decoded on demand

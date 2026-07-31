@@ -10,6 +10,14 @@
 
     [:octicons-arrow-right-24: core](api/core.md)
 
+-   :material-message-text-outline:{ .lg .middle } **Logging**
+
+    ---
+
+    Opt-in, host-safe Loguru and MNE integration.
+
+    [:octicons-arrow-right-24: logging](api/logging.md)
+
 -   :material-folder-open:{ .lg .middle } **IO**
 
     ---

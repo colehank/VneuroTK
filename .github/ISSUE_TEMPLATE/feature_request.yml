@@ -1,30 +1,66 @@
 name: Feature Request
-description: Suggest something new.
+description: Propose a focused, testable VneuroTK improvement.
 title: "FEAT: "
 labels: [enhancement]
 body:
   - type: textarea
-    id: description
+    id: problem
     attributes:
-      label: Describe the feature
+      label: Problem and use case
+      description: What concrete problem should be solved, for whom, and why does it fit VneuroTK?
     validations:
       required: true
   - type: textarea
-    id: motivation
+    id: proposal
     attributes:
-      label: Motivation
-      description: What problem does this solve? What's the use case?
+      label: Proposed behavior
+      description: Describe the smallest useful API or documentation change.
+    validations:
+      required: true
+  - type: input
+    id: python-extra-backend
+    attributes:
+      label: Python, extra, and backend scope
+      description: Name affected Python versions, optional extras, backend/model identifiers, or state `core/not applicable`.
+      placeholder: "Python 3.11-3.14; timm extra; timm backend"
+    validations:
+      required: true
+  - type: textarea
+    id: data-provenance
+    attributes:
+      label: Data source and licensing impact
+      description: Identify any dataset/stimulus source, accession, known license and required citation. If none, state `not applicable`. Do not assume downloadable means redistributable.
+    validations:
+      required: true
+  - type: textarea
+    id: network-integration
+    attributes:
+      label: Network and integration behavior
+      description: Describe downloads, third-party services, credentials, caches, hardware, offline behavior, and how tests can avoid restricted or unstable external resources. State `not applicable` if none.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria and evidence
+      description: List observable outcomes, tests, fixtures, docs, or benchmark evidence that would establish completion.
+      placeholder: |
+        - [ ] Public API returns ...
+        - [ ] Offline test covers ...
+        - [ ] Provenance/license documentation is updated
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
+      description: Include existing workarounds and relevant upstream tools.
     validations:
-      required: false
-  - type: textarea
-    id: context
+      required: true
+  - type: checkboxes
+    id: rights
     attributes:
-      label: Additional context
-    validations:
-      required: false
+      label: Data and ethics check
+      options:
+        - label: I will not attach restricted data, licensed stimuli, credentials, or private participant information to this issue.
+          required: true

@@ -16,16 +16,16 @@ This project ships with security hardening out of the box:
 
 - **CodeQL** scans code for injection, SSRF, path traversal, and other dataflow vulnerabilities using the `security-extended` query suite
 - **Zizmor** audits GitHub Actions workflows for excessive permissions, unpinned actions, credential exposure, and cache poisoning risks
-- **Dependabot** keeps GitHub Actions pinned by SHA and opens PRs for updates, with a 7-day cooldown to avoid adopting compromised releases immediately
+- **Dependabot** updates locked Python dependencies monthly and keeps GitHub Actions pinned by SHA current through weekly PRs, with a 7-day cooldown before newly available versions are proposed
 - **All actions pinned by SHA** with version comments, not floating tags
 - **Minimal workflow permissions** (`permissions: {}` at the top level, scoped per job)
 - **`persist-credentials: false`** on checkout steps to prevent token leakage
 
-## Response Times
+## Response and Disclosure
 
-This is a volunteer-maintained open source project. Security reports are taken seriously, but there are no guaranteed response times.
+This is a volunteer-maintained open-source project. Reports are reviewed on a best-effort basis; acknowledgment, remediation, and disclosure timelines are not guaranteed. Please keep vulnerability details private until the maintainer has assessed the report and coordinated disclosure with you.
 
-**Enterprise support** is available, with priority response SLAs. Contact guohao2045@gmail.com for details.
+If private vulnerability reporting is unavailable, open a public issue that asks the maintainer to enable a private contact channel, without including vulnerability details.
 
 ## Supported Versions
 

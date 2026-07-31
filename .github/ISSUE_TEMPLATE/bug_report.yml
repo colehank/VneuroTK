@@ -1,44 +1,45 @@
 name: Bug Report
-description: Something isn't working as expected.
+description: Report a reproducible VneuroTK problem.
 title: "BUG: "
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: >-
+        Search existing issues first. Do not attach restricted participant data,
+        licensed stimuli, credentials, or other private material.
   - type: textarea
     id: description
     attributes:
-      label: Describe the bug
-      description: What happened? What did you expect to happen?
+      label: What happened?
+      description: Describe the observed behavior and its impact.
     validations:
       required: true
   - type: textarea
-    id: steps
+    id: reproduction
     attributes:
-      label: Steps to reproduce
-      description: Minimal steps to trigger the bug.
+      label: Minimal reproduction
+      description: Provide the smallest complete example, exact command, traceback, and expected behavior. Redact secrets and private data.
       placeholder: |
-        1. Install with `uv pip install vneurotk`
-        2. Run `...`
-        3. See error
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
+        ```python
+        import vneurotk
+        # minimal example using synthetic or redistributable data
+        ```
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: "vneurotk version"
-      placeholder: "0.1.0"
+      label: VneuroTK version or Git revision
+      description: Include `vneurotk.__version__`, package source, or full commit.
+      placeholder: "0.0.1 or full Git commit"
     validations:
       required: true
   - type: input
     id: python-version
     attributes:
       label: Python version
-      placeholder: "3.13"
+      placeholder: "3.13.5"
     validations:
       required: true
   - type: dropdown
@@ -46,16 +47,52 @@ body:
     attributes:
       label: Operating system
       options:
-        - macOS
         - Linux
+        - macOS
         - Windows
         - Other
     validations:
       required: true
-  - type: textarea
-    id: context
+  - type: input
+    id: extra-backend
     attributes:
-      label: Additional context
-      description: Logs, tracebacks, screenshots, or anything else that helps.
+      label: Installed extra and backend
+      description: Name the extra (`core`, `vision`, `viz`, `mne`, `timm`, `thingsvision`, or `cebra`), backend/model identifier, and relevant dependency versions. Use `not applicable` when appropriate.
+      placeholder: "vision; transformers; facebook/dinov2-base; torch 2.x"
+    validations:
+      required: true
+  - type: textarea
+    id: data-provenance
+    attributes:
+      label: Data source, license, and privacy
+      description: Identify the source/accession and license or say `synthetic`, `not applicable`, or `unknown`. Confirm the reproduction contains no restricted data.
+      placeholder: "Synthetic array; no participant or licensed stimulus data included."
+    validations:
+      required: true
+  - type: dropdown
+    id: network-integration
+    attributes:
+      label: Network or external integration required?
+      description: Select the best description for the reproduction.
+      options:
+        - No; reproduces offline
+        - Yes; network download required
+        - Yes; local third-party integration or artifact required
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: integration-details
+    attributes:
+      label: Network/integration details
+      description: If applicable, name the service, artifact/model identifier, cache state, authentication method without secrets, hardware/driver, and whether an offline reproduction was attempted.
     validations:
       required: false
+  - type: textarea
+    id: acceptance-evidence
+    attributes:
+      label: Acceptance evidence
+      description: State the observable result that would demonstrate a fix and any regression test you can suggest.
+      placeholder: "The example completes offline and returns shape (...); a test fails before and passes after the fix."
+    validations:
+      required: true

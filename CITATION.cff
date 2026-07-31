@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: >-
+  If you use VneuroTK, cite the software version or source revision you used.
+  Cite datasets and model artifacts separately under their own terms.
+title: VneuroTK
+type: software
+authors:
+  - family-names: Zhang
+    given-names: Guohao
+    email: guohao2045@gmail.com
+abstract: A Python toolkit for visual neuroscience.
+repository-code: https://github.com/colehank/VneuroTK
+url: https://colehank.github.io/VneuroTK/
+license: MIT
+keywords:
+  - visual neuroscience
+  - neural data
+  - vision models
+  - Python

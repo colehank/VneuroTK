@@ -1,5 +1,22 @@
 version: 2
 updates:
+  # Python dependencies are locked by uv; grouped monthly PRs keep optional
+  # scientific stacks reviewable without creating one PR per package.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      python-runtime:
+        dependency-type: production
+      python-development:
+        dependency-type: development
+
+  # Keep SHA-pinned actions current. Dependabot updates both the commit and tag
+  # comment in existing workflows while the cooldown avoids immediate adoption.
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -7,3 +24,7 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

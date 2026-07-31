@@ -2,6 +2,20 @@
 
 End-to-end workflow using [NOD-MEG](https://openneuro.org/datasets/ds005810): read raw MEG, configure trial structure, extract DNN features, and persist everything to HDF5.
 
+!!! warning "Data rights and citation"
+    This example's fetcher obtains a subset archive from Zenodo record `20094167`.
+    Before use or redistribution, verify the Zenodo and OpenNeuro records' current
+    license, citation, consent, and stimulus terms. The repository does not grant
+    those rights. See the [data policy](../data-policy.md).
+
+!!! info "How this sample path is validated"
+    Normal tests exercise downloading, digest checks, and safe extraction
+    offline with generated archives; they do not fetch NOD-MEG. A separate
+    weekly and manually dispatched workflow downloads the published NOD-MEG
+    archive into a fresh temporary cache and checks this example's lazy read,
+    event alignment, trial configuration, and bounded image decoding. That
+    workflow is separate from normal CI and does not cache or upload the data.
+
 ```python
 import os
 import tempfile

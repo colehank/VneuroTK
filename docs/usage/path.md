@@ -1,12 +1,17 @@
 # Path system of vneurotk
 
-Three path classes handle file location for different data sources. Path objects only construct paths — no IO is triggered.
+Four path classes handle file location for different data sources. Path objects only construct paths — no I/O is triggered until they are passed to `vtk.read(...)`, `BaseData.save(...)`, or their explicit `.load()` method.
 
 | Class | Use |
 |---|---|
-| `EphysPath` | Ephys data (spike raster, mean firing rate, etc.) |
-| `MNEPath` | MEG / EEG in MNE-BIDS format |
-| `VTKPath` | vneurotk HDF5 save format |
+| `VTKPath` | VneuroTK HDF5 recordings; base naming convention |
+| `EphysPath` | Session-level ephys data (spike raster, mean firing rate, etc.) |
+| `MNEPath` | MNE-readable MEG / EEG files |
+| `BIDSPath` | BIDS paths backed by the optional `mne-bids` package |
+
+All `root` arguments accept `str` or `pathlib.Path`, and every `.fpath` result is
+a `pathlib.Path`. `BIDSPath` can construct a fallback path without the `mne`
+extra, but full BIDS behavior and loading require `vneurotk[mne]`.
 
 ## EphysPath
 
@@ -39,7 +44,10 @@ Helper attributes: `p.session_dir`, `p.raw_dir`, `p.nwb_path`.
 
 ## MNEPath
 
-Follows MNE-BIDS convention: `{root}/sub-{subject}/ses-{session}/meg/sub-{subject}_ses-{session}_task-{task}_run-{run}_{suffix}{extension}`.
+Builds an MNE-style filename directly under `root`:
+`{root}/sub-{subject}_ses-{session}_task-{task}_run-{run}_{suffix}{extension}`.
+Use `BIDSPath` when the directory layout and entities should be delegated to
+`mne_bids.BIDSPath`.
 
 ```python
 from vneurotk.io import MNEPath
@@ -66,4 +74,27 @@ vtk_path.fpath
 vtk_path = VTKPath(existing_h5_path)
 ```
 
-All path objects are passed directly to `vtk.read()`.
+## BIDSPath
+
+```python
+from vneurotk.io import BIDSPath
+
+bids_path = BIDSPath(
+    root=BIDS_ROOT,
+    subject="01",
+    session="01",
+    task="images",
+    run="01",
+    suffix="meg",
+    extension=".fif",
+)
+bids_path.fpath
+```
+
+With `mne-bids` installed, `.bids_path` exposes the wrapped
+`mne_bids.BIDSPath`. Without it, `.bids_path` is `None` and `.fpath` uses the
+base VneuroTK naming fallback.
+
+All path objects are accepted by `vtk.read()`. Plain `str` and `pathlib.Path`
+inputs are also accepted; `.h5` selects the VneuroTK HDF5 reader and other
+formats are dispatched by the loader.

@@ -2,6 +2,12 @@
 
 `data.vision.extract_from()` uses the image database bound by `configure()` and stores features at unique-stimulus granularity. Onset-aligned (trial-order) arrays are produced at read time.
 
+`data.vision` is a `VisionData` store. Unlike standalone
+`VisualRepresentations`, its string, integer, and single-match mask accessors
+return NumPy arrays aligned to `VisionData.output_order`. A multi-match mask
+returns a `VisualRepresentations` collection whose arrays have already been
+aligned to that order.
+
 ## Extract features
 
 ```python
@@ -10,7 +16,11 @@ data.vision.extract_from(model, batch_size=16)
 # VisionData(200 stimuli x 13 modules)
 ```
 
-Calling `extract_from()` again with the same model is a no-op.
+Calling `extract_from()` again with the same model is a no-op. When only some
+selected modules are missing, existing records retain their original
+`ExtractionProvenance` and newly extracted records receive provenance from the
+current model/selector. `overwrite=True` replaces each selected record together
+with its provenance.
 
 ## Index `data.vision`
 
@@ -18,8 +28,9 @@ Calling `extract_from()` again with the same model is a no-op.
 |---|---|
 | `data.vision["layer_name"]` | ndarray, shape `(n_trials, ...)` onset-aligned |
 | `data.vision[int]` | ndarray for the *i*-th layer, onset-aligned |
+| `data.vision[bool_mask]` (0 matches) | empty `VisualRepresentations` |
 | `data.vision[bool_mask]` (1 match) | ndarray, onset-aligned |
-| `data.vision[bool_mask]` (multi) | `VisualRepresentations` |
+| `data.vision[bool_mask]` (multiple matches) | `VisualRepresentations`, onset-aligned |
 
 ```python
 feat = data.vision["layernorm"]          # (200, 257, 768)
@@ -41,7 +52,8 @@ data.vision.meta  # now contains layers from both models
 
 ## Save and reload
 
-Features are persisted together with neural data in a single HDF5 file:
+Features and each record's structured extraction provenance are persisted
+together with neural data in a single HDF5 file:
 
 ```python
 data.save(vtk_path)
