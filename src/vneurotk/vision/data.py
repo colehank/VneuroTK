@@ -93,24 +93,33 @@ class VisionData:
     @staticmethod
     def _assert_stim_ids_cover_output_order(vr: Any, output_order: np.ndarray) -> None:
         vr_ids = set(vr.stim_ids)
-        missing = [sid for sid in output_order if sid not in vr_ids]
+        missing = list(dict.fromkeys(sid for sid in output_order.tolist() if sid not in vr_ids))
         if missing:
             raise ValueError(
                 f"VR '{vr.module_name}' (model='{vr.model}') stim_ids do not cover "
-                f"output_order. Missing {len(missing)} ID(s): {missing[:5]}"
-                f"{'…' if len(missing) > 5 else ''}."
+                f"output_order. Missing {len(missing)} ID(s): {missing}."
+            )
+
+    @staticmethod
+    def _assert_unique_stim_ids(vr: VisualRepresentation) -> None:
+        if len(set(vr.stim_ids)) != len(vr.stim_ids):
+            raise ValueError(
+                f"VisionData stores unique-stimulus representations; VR '{vr.module_name}' "
+                f"(model='{vr.model}') contains repeated stim_ids."
             )
 
     def add(self, visual_representations: VisualRepresentations, overwrite: bool = False) -> None:
-        """Add records — validates stim_id coverage then stores.
+        """Add unique source records after validating stimulus coverage.
 
         Parameters
         ----------
         visual_representations : VisualRepresentations
         overwrite : bool
         """
-        for vr in visual_representations:
-            self._assert_stim_ids_cover_output_order(vr, self._output_order)
+        if len(visual_representations):
+            for vr in visual_representations:
+                self._assert_unique_stim_ids(vr)
+            self._assert_stim_ids_cover_output_order(visual_representations[0], self._output_order)
         self._store_records(visual_representations, overwrite)
 
     # ------------------------------------------------------------------
@@ -124,6 +133,7 @@ class VisionData:
         *,
         batch_size: int = 32,
         overwrite: bool = False,
+        stimulus_content_hash: str | None = None,
     ) -> None:
         """Extract DNN features and store them.
 
@@ -145,15 +155,18 @@ class VisionData:
             Images per forward pass.  Default 32.
         overwrite : bool
             Replace existing records for the same ``(model_id, module_name)`` key.
+        stimulus_content_hash : str or None
+            Optional caller-computed digest attached to records extracted in
+            this call.
 
         Raises
         ------
         RuntimeError
             If no image source is available.
         """
-        from vneurotk.vision.model.base import VisionModel
-
         if isinstance(model, str):
+            from vneurotk.vision.model.base import VisionModel
+
             model = VisionModel(model)
 
         if vision_db is not None:
@@ -164,7 +177,13 @@ class VisionData:
         if self._vision_db is None:
             raise RuntimeError("No image source available. Pass vision_db= to extract_from().")
 
-        self._run_extraction(model, self._vision_db, batch_size=batch_size, overwrite=overwrite)
+        self._run_extraction(
+            model,
+            self._vision_db,
+            batch_size=batch_size,
+            overwrite=overwrite,
+            stimulus_content_hash=stimulus_content_hash,
+        )
 
     def _run_extraction(
         self,
@@ -172,13 +191,9 @@ class VisionData:
         stimuli: Any,
         batch_size: int,
         overwrite: bool,
+        stimulus_content_hash: str | None = None,
     ) -> None:
         """Internal: run extraction via *model* and store results."""
-        images = self._relevant_images(stimuli)
-        if not images:
-            logger.warning("extract_from: no images found for any output_order ID — skipping.")
-            return
-
         pending = self._pending_modules(model.model_id, model.module_names, overwrite)
         if not pending:
             logger.info(
@@ -188,6 +203,7 @@ class VisionData:
             )
             return
 
+        images = self._relevant_images(stimuli)
         if len(pending) < len(model.module_names):
             logger.info(
                 "extract_from: {}/{} modules missing for '{}', extracting subset.",
@@ -202,9 +218,12 @@ class VisionData:
                 len(model.module_names),
                 batch_size,
             )
-        visual_representations = model.extract_for_modules(images, pending, batch_size=batch_size)
+        extraction_kwargs: dict[str, Any] = {"batch_size": batch_size}
+        if stimulus_content_hash is not None:
+            extraction_kwargs["stimulus_content_hash"] = stimulus_content_hash
+        visual_representations = model.extract_for_modules(images, pending, **extraction_kwargs)
 
-        self._store_records(visual_representations, overwrite=overwrite)
+        self.add(visual_representations, overwrite=overwrite)
         logger.info("extract_from done: {} modules stored.", len(self._records))
 
     def _pending_modules(self, model_id: str, module_names: list[str], overwrite: bool) -> list[str]:
@@ -214,13 +233,18 @@ class VisionData:
 
     def _relevant_images(self, stimuli: Any) -> dict:
         unique_ids: list = list(dict.fromkeys(self._output_order.tolist()))
-        return {sid: stimuli[sid] for sid in unique_ids if sid in stimuli}
+        missing = [sid for sid in unique_ids if sid not in stimuli]
+        if missing:
+            raise ValueError(
+                f"Image source does not cover output_order. Missing {len(missing)} stimulus ID(s): {missing}."
+            )
+        return {sid: stimuli[sid] for sid in unique_ids}
 
     # ------------------------------------------------------------------
     # HDF5 persistence
     # ------------------------------------------------------------------
 
-    def dump(self, f: h5py.File, group_name: str = "vision_store") -> None:
+    def dump(self, f: h5py.File, group_name: str = "vision_store", storage_options: Any = None) -> None:
         """Serialize stored records to an HDF5 group.
 
         Parameters
@@ -228,20 +252,19 @@ class VisionData:
         f : h5py.File
         group_name : str
         """
-        import h5py as _h5py
+        from vneurotk.io._h5_codec import H5StorageOptions, dataset_kwargs, write_scalar_sequence
 
+        options = storage_options or H5StorageOptions()
         vsg = f.create_group(group_name)
         for i, vr in enumerate(self._records.values()):
             grp = vsg.create_group(str(i))
             grp.attrs["model"] = vr.model
             grp.attrs["module_name"] = vr.module_name
             grp.attrs["module_type"] = vr.module_type
-            sid = vr.stim_ids
-            if sid and isinstance(sid[0], str):
-                grp.create_dataset("stim_ids", data=np.array(sid, dtype=_h5py.string_dtype()))
-            else:
-                grp.create_dataset("stim_ids", data=np.array(sid))
-            grp.create_dataset("array", data=vr.array)
+            grp.attrs["extraction_provenance"] = vr.provenance.to_json()
+            write_scalar_sequence(grp, "stim_ids", vr.stim_ids, context="visual-representation stimulus ID")
+            array = vr.array
+            grp.create_dataset("array", data=array, **dataset_kwargs(array, options))
 
     @classmethod
     def from_h5(
@@ -251,6 +274,7 @@ class VisionData:
         group_name: str = "vision_store",
         vision_db: Any = None,
         fpath: Any = None,
+        file_identity: Any = None,
     ) -> VisionData:
         """Reconstruct from an HDF5 group.
 
@@ -270,6 +294,12 @@ class VisionData:
         """
         from pathlib import Path
 
+        from vneurotk.io._h5_codec import (
+            decode_text,
+            open_file_identity,
+            verify_open_file_identity,
+        )
+
         vd = cls(output_order, vision_db=vision_db)
         if group_name not in f:
             return vd
@@ -277,40 +307,65 @@ class VisionData:
         records = []
         for key in sorted(vsg.keys(), key=lambda x: int(x)):
             grp = vsg[key]
-            raw_sids = grp["stim_ids"][:]
-            if raw_sids.dtype.kind in ("S", "O"):
-                sids: list = [v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in raw_sids]
+            import h5py as _h5py
+
+            sid_obj = grp["stim_ids"]
+            if isinstance(sid_obj, _h5py.Group):
+                from vneurotk.io._h5_codec import read_scalar_sequence
+
+                sids = read_scalar_sequence(grp, "stim_ids")
             else:
-                sids = raw_sids.tolist()
+                raw_sids = sid_obj[:]
+                if raw_sids.dtype.kind in ("S", "O"):
+                    sids = [v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in raw_sids]
+                else:
+                    sids = raw_sids.tolist()
+
+            from vneurotk.vision.meta import ExtractionProvenance
+
+            def _text_attr(name: str, _group: Any = grp) -> str:
+                return decode_text(_group.attrs[name])
+
+            model_id = _text_attr("model")
+            provenance_value = grp.attrs.get("extraction_provenance")
+            provenance = (
+                ExtractionProvenance.unknown(model_id=model_id)
+                if provenance_value is None
+                else ExtractionProvenance.from_json(provenance_value)
+            )
 
             if fpath is not None:
                 arr_shape = tuple(grp["array"].shape)
                 _p, _g, _k = str(Path(fpath)), group_name, key
+                _identity = open_file_identity(f) if file_identity is None else file_identity
 
-                def _loader(p: str = _p, g: str = _g, k: str = _k) -> np.ndarray:
+                def _loader(p: str = _p, g: str = _g, k: str = _k, identity: Any = _identity) -> np.ndarray:
                     import h5py as _h5py
 
                     with _h5py.File(p, "r") as _f:
+                        verify_open_file_identity(_f, identity, p)
                         return _f[g][k]["array"][:]
 
                 records.append(
                     VisualRepresentation(
-                        model=str(grp.attrs["model"]),
-                        module_name=str(grp.attrs["module_name"]),
-                        module_type=str(grp.attrs["module_type"]),
+                        model=model_id,
+                        module_name=_text_attr("module_name"),
+                        module_type=_text_attr("module_type"),
                         stim_ids=sids,
                         array_loader=_loader,
                         shape=arr_shape,
+                        provenance=provenance,
                     )
                 )
             else:
                 records.append(
                     VisualRepresentation(
-                        model=str(grp.attrs["model"]),
-                        module_name=str(grp.attrs["module_name"]),
-                        module_type=str(grp.attrs["module_type"]),
+                        model=model_id,
+                        module_name=_text_attr("module_name"),
+                        module_type=_text_attr("module_type"),
                         stim_ids=sids,
                         array=grp["array"][:],
+                        provenance=provenance,
                     )
                 )
         if records:
@@ -328,8 +383,15 @@ class VisionData:
 
     @output_order.setter
     def output_order(self, value: np.ndarray) -> None:
-        self._output_order = np.asarray(value)
+        proposed_order = np.asarray(value)
+        self._validate_output_order(proposed_order)
+        self._output_order = proposed_order
         self._align_cache.clear()
+
+    def _validate_output_order(self, proposed_order: np.ndarray) -> None:
+        """Validate a proposed alignment order without mutating this store."""
+        for vr in self._records.values():
+            self._assert_stim_ids_cover_output_order(vr, proposed_order)
 
     def by_module(self, name: str, model: str | None = None) -> np.ndarray:
         """Return the output-order-aligned activation array for *name*.
@@ -401,6 +463,8 @@ class VisionData:
                 module_type=vr.module_type,
                 stim_ids=list(self._output_order),
                 array=self._align_vr(vr),
+                provenance=vr.provenance,
+                _allow_repeated_stim_ids=True,
             )
             for vr in filtered
         ]

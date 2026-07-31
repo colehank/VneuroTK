@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
 from loguru import logger
 from tqdm.auto import tqdm
 
+from vneurotk.vision.meta import ExtractionProvenance
 from vneurotk.vision.model.backend.base import BaseBackend
 from vneurotk.vision.model.selector import BlockLevelSelector, CustomSelector, ModuleSelector
 from vneurotk.vision.representation.visual_representations import (
@@ -67,6 +69,8 @@ class VisionModel:
         self._backend.load(model_id, pretrained=pretrained)
 
         self._bind_selector()
+        self._provenance = self._build_provenance()
+        self._provenance_is_caller_supplied = False
 
         logger.info(
             "VisionModel ready | model={} | backend={} | modules={}",
@@ -85,6 +89,7 @@ class VisionModel:
         model: Any,
         backend: BaseBackend,
         selector: ModuleSelector | None = None,
+        provenance: ExtractionProvenance | None = None,
     ) -> VisionModel:
         """Build a VisionModel from an already-loaded model.
 
@@ -96,6 +101,10 @@ class VisionModel:
             Backend instance with *model* already assigned.
         selector : ModuleSelector or None
             Defaults to :class:`BlockLevelSelector`.
+        provenance : ExtractionProvenance or None
+            Explicit metadata for a caller-supplied model. If omitted, locally
+            discoverable backend metadata is used and unavailable fields remain
+            ``"unknown"``.
 
         Returns
         -------
@@ -107,6 +116,8 @@ class VisionModel:
         inst._backend.model = model
 
         inst._bind_selector()
+        inst._provenance = provenance if provenance is not None else inst._build_provenance()
+        inst._provenance_is_caller_supplied = provenance is not None
         return inst
 
     # ------------------------------------------------------------------
@@ -119,10 +130,15 @@ class VisionModel:
         Called by ``__init__``, ``from_model``, and ``set_selector`` so the
         wiring logic lives in exactly one place.
         """
-        module_names = self._selector.select(self._backend.enumerate_modules())
+        modules = self._backend.enumerate_modules()
+        module_names = self._selector.select(modules)
         self._backend.register_hooks(module_names)
         self._module_names = module_names
-        self._module_type_map: dict[str, str] = {m.name: m.module_type for m in self._backend.enumerate_modules()}
+        self._module_type_map = {module.name: module.module_type for module in modules}
+
+    def _build_provenance(self) -> ExtractionProvenance:
+        """Build provenance from backend state and the active selector."""
+        return self._backend.get_extraction_provenance(selector=self._selector.describe())
 
     # ------------------------------------------------------------------
     # Extraction
@@ -165,6 +181,8 @@ class VisionModel:
         image: Any,
         batch_size: int = DEFAULT_BATCH_SIZE,
         show_progress: bool = True,
+        *,
+        stimulus_content_hash: str | None = None,
     ) -> VisualRepresentations:
         """Extract DNN activations for one image or a collection of stimuli.
 
@@ -182,6 +200,9 @@ class VisionModel:
         show_progress : bool
             Display a tqdm progress bar over batches.  Automatically
             suppressed for single-image input.  Default ``True``.
+        stimulus_content_hash : str or None
+            Optional caller-computed digest of the ordered stimulus content.
+            VneuroTK does not read or hash images implicitly.
 
         Returns
         -------
@@ -197,6 +218,7 @@ class VisionModel:
             self._module_names,
             batch_size=1 if is_single else batch_size,
             show_progress=False if is_single else show_progress,
+            stimulus_content_hash=stimulus_content_hash,
         )
 
     # ------------------------------------------------------------------
@@ -207,6 +229,11 @@ class VisionModel:
     def model_id(self) -> str:
         """Model identifier (e.g. ``'facebook/dinov2-base'``, ``'resnet50'``)."""
         return self._backend.get_model_meta().model_id
+
+    @property
+    def provenance(self) -> ExtractionProvenance:
+        """Base extraction provenance, excluding an optional stimulus hash."""
+        return self._provenance
 
     @property
     def module_names(self) -> list[str]:
@@ -331,6 +358,11 @@ class VisionModel:
         assert selector is not None
         self._selector = selector
         self._bind_selector()
+        self._provenance = (
+            replace(self._provenance, selector=self._selector.describe())
+            if self._provenance_is_caller_supplied
+            else self._build_provenance()
+        )
         logger.info("Selector updated | modules={}", len(self._module_names))
 
     # ------------------------------------------------------------------
@@ -343,6 +375,8 @@ class VisionModel:
         module_names: list[str],
         batch_size: int,
         show_progress: bool = True,
+        *,
+        stimulus_content_hash: str | None = None,
     ) -> VisualRepresentations:
         """Extract activations for a subset of modules without altering state.
 
@@ -359,13 +393,21 @@ class VisionModel:
             Images per forward pass.
         show_progress : bool
             Show tqdm progress bar.
+        stimulus_content_hash : str or None
+            Optional caller-computed stimulus content digest.
 
         Returns
         -------
         VisualRepresentations
         """
+        provenance = replace(self._provenance, stimulus_content_hash=stimulus_content_hash)
         with self._hooked_for(module_names):
-            return self._extract_batch(images, batch_size=batch_size, show_progress=show_progress)
+            return self._extract_batch(
+                images,
+                batch_size=batch_size,
+                show_progress=show_progress,
+                provenance=provenance,
+            )
 
     @contextlib.contextmanager
     def _hooked_for(self, module_names: list[str]):
@@ -383,6 +425,7 @@ class VisionModel:
         self,
         stim_ids: list,
         features: dict[str, np.ndarray],
+        provenance: ExtractionProvenance | None = None,
     ) -> list[VisualRepresentation]:
         """Assemble VisualRepresentation objects from batched features.
 
@@ -402,6 +445,7 @@ class VisionModel:
         list[VisualRepresentation]
         """
         model_meta = self._backend.get_model_meta()
+        provenance = provenance or self._provenance
         return [
             VisualRepresentation(
                 model=model_meta.model_id,
@@ -409,14 +453,21 @@ class VisionModel:
                 module_type=self._module_type_map.get(layer, ""),
                 stim_ids=stim_ids,
                 array=arr,
+                provenance=provenance,
             )
             for layer, arr in features.items()
         ]
 
-    def _extract_batch(self, images: dict, batch_size: int, show_progress: bool = False) -> VisualRepresentations:
+    def _extract_batch(
+        self,
+        images: dict,
+        batch_size: int,
+        show_progress: bool = False,
+        provenance: ExtractionProvenance | None = None,
+    ) -> VisualRepresentations:
         stim_ids, loaded = self._prepare_images(images)
         features = self._run_batches(loaded, batch_size, show_progress)
-        vr_list = self._build_vr_list(stim_ids, features)
+        vr_list = self._build_vr_list(stim_ids, features, provenance=provenance)
         logger.info(
             "Extracted | n={} | batch_size={} | modules={}",
             len(stim_ids),

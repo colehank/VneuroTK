@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import torch.nn as nn  # type: ignore
+import torch.nn as nn  # type: ignore
 
 from vneurotk.vision.meta import ModuleInfo
 
@@ -49,6 +47,10 @@ class ModuleSelector(ABC):
         list[str]
             Ordered module names to register hooks on.
         """
+
+    def describe(self) -> str:
+        """Return a stable, human-readable selector description."""
+        return type(self).__name__
 
 
 class BlockLevelSelector(ModuleSelector):
@@ -89,6 +91,15 @@ class BlockLevelSelector(ModuleSelector):
         self._extra = [re.compile(p) for p in (include_patterns or [])]
         raw = arch_patterns if arch_patterns is not None else self._ARCH_PATTERNS
         self._compiled_patterns: list[tuple[re.Pattern, int]] = [(re.compile(p), d) for p, d in raw]
+        self._raw_patterns = list(raw)
+        self._include_patterns = list(include_patterns or [])
+
+    def describe(self) -> str:
+        """Return the configured depth and pattern lists."""
+        return (
+            f"BlockLevelSelector(max_depth={self.max_depth},"
+            f"include_patterns={self._include_patterns!r},arch_patterns={self._raw_patterns!r})"
+        )
 
     @classmethod
     def default_patterns(cls) -> list[tuple[str, int]]:
@@ -183,6 +194,10 @@ class AllLeafSelector(ModuleSelector):
         """
         return [m.name for m in modules if m.is_leaf and m.module_type not in self._exclude_names]
 
+    def describe(self) -> str:
+        """Return excluded module type names in stable order."""
+        return f"AllLeafSelector(exclude_types={sorted(self._exclude_names)!r})"
+
 
 class CustomSelector(ModuleSelector):
     """Use an explicit user-supplied list of layer names.
@@ -226,3 +241,7 @@ class CustomSelector(ModuleSelector):
                 f"Layer(s) not found in model: {missing}. Inspect available names with model.named_modules()."
             )
         return list(self.layer_names)
+
+    def describe(self) -> str:
+        """Return the explicitly selected module names."""
+        return f"CustomSelector(layer_names={self.layer_names!r})"

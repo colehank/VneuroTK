@@ -8,6 +8,8 @@ from typing import Any, overload
 import numpy as np
 import pandas as pd
 
+from vneurotk.vision.meta import ExtractionProvenance
+
 __all__ = ["VisualRepresentation", "VisualRepresentations"]
 
 
@@ -45,16 +47,55 @@ class VisualRepresentation:
         *,
         array_loader: Callable[[], np.ndarray] | None = None,
         shape: tuple | None = None,
+        provenance: ExtractionProvenance | None = None,
+        _allow_repeated_stim_ids: bool = False,
     ) -> None:
         if array is None and array_loader is None:
             raise ValueError("Either array or array_loader must be provided.")
+        if array is not None and array_loader is not None:
+            raise ValueError("array and array_loader are mutually exclusive.")
+
+        resolved_shape = tuple(np.shape(array)) if array is not None else shape
+        if resolved_shape is None:
+            raise ValueError("shape is required when array_loader is provided.")
+        if len(resolved_shape) == 0:
+            raise ValueError(
+                f"Activation array for model={model!r}, module={module_name!r} must have at least one dimension; "
+                f"got shape {resolved_shape}."
+            )
+        if len(stim_ids) != resolved_shape[0]:
+            raise ValueError(
+                f"stim_ids length {len(stim_ids)} does not match activation first dimension "
+                f"{resolved_shape[0]} for model={model!r}, module={module_name!r} "
+                f"(shape={resolved_shape})."
+            )
+
+        duplicate_ids: list[Any] = []
+        duplicate_id_set: set[Any] = set()
+        seen_ids: set[Any] = set()
+        for stim_id in stim_ids:
+            if stim_id in seen_ids and stim_id not in duplicate_id_set:
+                duplicate_ids.append(stim_id)
+                duplicate_id_set.add(stim_id)
+            seen_ids.add(stim_id)
+        if duplicate_ids and not _allow_repeated_stim_ids:
+            raise ValueError(
+                f"stim_ids must be unique for model={model!r}, module={module_name!r}; "
+                f"found {len(duplicate_ids)} duplicate ID(s): {duplicate_ids}."
+            )
+
         self.model = model
         self.module_name = module_name
         self.module_type = module_type
+        self.provenance = provenance or ExtractionProvenance.unknown(model_id=model)
+        if self.provenance.model_id not in (model, "unknown"):
+            raise ValueError(
+                f"provenance model_id {self.provenance.model_id!r} does not match representation model {model!r}."
+            )
         self.stim_ids: tuple = tuple(stim_ids)
         self._array: np.ndarray | None = np.asarray(array) if array is not None else None
         self._array_loader: Callable[[], np.ndarray] | None = array_loader
-        self._shape: tuple | None = shape if self._array is None else None
+        self._shape: tuple | None = resolved_shape if self._array is None else None
         self._id_to_idx: dict[Any, int] = {sid: i for i, sid in enumerate(self.stim_ids)}
 
     @property
@@ -103,6 +144,8 @@ class VisualRepresentation:
             module_type=self.module_type,
             stim_ids=ids_list,
             array=self.array[indices],
+            provenance=self.provenance,
+            _allow_repeated_stim_ids=True,
         )
 
     def __repr__(self) -> str:

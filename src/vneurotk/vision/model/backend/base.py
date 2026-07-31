@@ -14,6 +14,7 @@ import contextlib
 import re
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     import torch.nn as nn  # type: ignore
     from torch import Tensor  # type: ignore
 
-from vneurotk.vision.meta import ModelInfo, ModuleInfo
+from vneurotk.vision.meta import UNKNOWN, ExtractionProvenance, ModelInfo, ModuleInfo
 
 __all__ = ["BaseBackend", "ModuleInfo"]
 
@@ -48,6 +49,7 @@ class BaseBackend(ABC):
         self.model: nn.Module | None = None
         self._hooks: list[Any] = []
         self._activations: OrderedDict[str, Tensor] = OrderedDict()
+        self._pretrained: bool | str = UNKNOWN
 
     # ------------------------------------------------------------------
     # Abstract interface
@@ -128,6 +130,75 @@ class BaseBackend(ABC):
         -------
         ModelInfo
         """
+
+    def get_extraction_provenance(
+        self,
+        *,
+        selector: str = UNKNOWN,
+        stimulus_content_hash: str | None = None,
+    ) -> ExtractionProvenance:
+        """Build provenance exclusively from locally available state.
+
+        Subclasses may override :meth:`get_model_revision`,
+        :meth:`get_preprocessing_description`, and :meth:`dependency_names` to
+        expose richer metadata. No implementation should query a remote model
+        registry while constructing provenance.
+        """
+        model_meta = self.get_model_meta()
+        return ExtractionProvenance(
+            backend=model_meta.backend or UNKNOWN,
+            model_id=model_meta.model_id or UNKNOWN,
+            model_revision=self.get_model_revision(),
+            pretrained=self._pretrained,
+            preprocessing=self.get_preprocessing_description(),
+            selector=selector,
+            dependency_versions=self.get_dependency_versions(),
+            dtype=self.get_model_dtype(),
+            device=str(self.device) if self.device is not None else UNKNOWN,
+            writer_version=self._package_version("vneurotk"),
+            stimulus_content_hash=stimulus_content_hash,
+        )
+
+    def get_model_revision(self) -> str:
+        """Return a locally available model revision, or ``"unknown"``."""
+        if self.model is not None:
+            config = getattr(self.model, "config", None)
+            for owner in (config, self.model):
+                for name in ("_commit_hash", "commit_hash", "revision"):
+                    value = getattr(owner, name, None)
+                    if value:
+                        return str(value)
+        return UNKNOWN
+
+    def get_preprocessing_description(self) -> str:
+        """Return a stable local description of the image preprocessing."""
+        return UNKNOWN
+
+    def dependency_names(self) -> tuple[str, ...]:
+        """Return backend-specific distributions whose versions are relevant."""
+        return ("torch",)
+
+    def get_dependency_versions(self) -> dict[str, str]:
+        """Return installed dependency versions without importing packages."""
+        names = ("vneurotk", *self.dependency_names())
+        return {name: self._package_version(name) for name in dict.fromkeys(names)}
+
+    @staticmethod
+    def _package_version(distribution: str) -> str:
+        try:
+            return version(distribution)
+        except PackageNotFoundError:
+            return UNKNOWN
+
+    def get_model_dtype(self) -> str:
+        """Return the first model parameter dtype, or ``"unknown"``."""
+        if self.model is None:
+            return UNKNOWN
+        try:
+            parameter = next(self.model.parameters())
+        except (StopIteration, AttributeError):
+            return UNKNOWN
+        return str(parameter.dtype).removeprefix("torch.")
 
     # ------------------------------------------------------------------
     # Image loading (shared)

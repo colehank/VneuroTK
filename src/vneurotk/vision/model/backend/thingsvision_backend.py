@@ -39,7 +39,7 @@ class ThingsVisionBackend(BaseBackend):
             from thingsvision.model_class import Model  # noqa: F401  # ty: ignore[unresolved-import]
         except ImportError as exc:
             raise ImportError(
-                "thingsvision is required for ThingsVisionBackend.  Install with: uv add thingsvision"
+                "thingsvision is required for ThingsVisionBackend. Install it with: uv add 'vneurotk[thingsvision]'"
             ) from exc
 
         super().__init__(device)
@@ -82,6 +82,7 @@ class ThingsVisionBackend(BaseBackend):
         self.model.eval()
         self._transform = self._tv_model.get_transformations()
         self._model_name = model_name
+        self._pretrained = pretrained
         logger.info("Loaded thingsvision model: {}", model_name)
 
     def preprocess(self, image: Any) -> dict[str, Any]:
@@ -117,6 +118,8 @@ class ThingsVisionBackend(BaseBackend):
         -------
         Tensor
         """
+        import torch  # type: ignore
+
         if self.model is None:
             raise RuntimeError("Model not loaded. Call load() first.")
         px = self._move_to_device(inputs)["pixel_values"]
@@ -126,6 +129,16 @@ class ThingsVisionBackend(BaseBackend):
     def get_model_meta(self) -> ModelInfo:
         """Return ModelInfo for the loaded thingsvision model."""
         return ModelInfo(model_id=self._model_name, backend="thingsvision")
+
+    def dependency_names(self) -> tuple[str, ...]:
+        """Return thingsvision extraction dependencies."""
+        return ("torch", "thingsvision", "torchvision", "timm", "Pillow")
+
+    def get_preprocessing_description(self) -> str:
+        """Describe the locally created thingsvision transform."""
+        if self._transform is None:
+            return "unknown"
+        return f"source={self._tv_source};transform={type(self._transform).__name__}:{self._transform!s}"
 
     # ------------------------------------------------------------------
     # Private helpers

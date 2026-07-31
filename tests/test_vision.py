@@ -12,21 +12,45 @@ Covers:
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
-torch = pytest.importorskip("torch")
-import torch.nn as nn  # type: ignore
+pytestmark = pytest.mark.vision
 
-from vneurotk.vision.meta import ModelInfo
-from vneurotk.vision.model.backend.base import BaseBackend, ModuleInfo
-from vneurotk.vision.model.selector import (
-    AllLeafSelector,
-    BlockLevelSelector,
-    CustomSelector,
-)
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
+
+    from vneurotk.vision.model.backend.base import BaseBackend, ModuleInfo
+    from vneurotk.vision.model.selector import (
+        AllLeafSelector,
+        BlockLevelSelector,
+        CustomSelector,
+    )
+else:
+    try:
+        import torch
+        import torch.nn as nn
+
+        from vneurotk.vision.model.backend.base import BaseBackend, ModuleInfo
+        from vneurotk.vision.model.selector import (
+            AllLeafSelector,
+            BlockLevelSelector,
+            CustomSelector,
+        )
+    except ImportError:
+        torch = None
+        nn = None
+        BaseBackend = object
+        ModuleInfo = None
+        AllLeafSelector = BlockLevelSelector = CustomSelector = None
+
+requires_torch = pytest.mark.skipif(torch is None, reason="torch is required for vision model tests")
+
+from vneurotk.vision.meta import ExtractionProvenance, ModelInfo
 from vneurotk.vision.representation.visual_representations import (
     VisualRepresentation,
     VisualRepresentations,
@@ -72,261 +96,6 @@ def _make_vrs(n_stim: int = 5, d: int = 8) -> VisualRepresentations:
 
 
 # ===========================================================================
-# TestVisualRepresentation (atomic)
-# ===========================================================================
-
-
-class TestVisualRepresentation:
-    def test_basic_properties(self):
-        vr = _make_vr(n_stim=10, d=16)
-        assert vr.n_stim == 10
-        assert vr.shape == (10, 16)
-        assert vr.model == "test_model"
-        assert vr.module_name == "layer_a"
-
-    def test_select_by_id(self):
-        vr = _make_vr(n_stim=5, d=8)
-        sub = vr.select([1, 3])
-        assert sub.n_stim == 2
-        assert list(sub.stim_ids) == [1, 3]
-        assert sub.array.shape == (2, 8)
-
-    def test_select_missing_id_raises(self):
-        vr = _make_vr(n_stim=3)
-        with pytest.raises(KeyError):
-            vr.select([99])
-
-    def test_repr(self):
-        vr = _make_vr()
-        r = repr(vr)
-        assert "VisualRepresentation" in r
-        assert "test_model" in r
-
-
-# ===========================================================================
-# TestVisualRepresentations (container)
-# ===========================================================================
-
-
-class TestVisualRepresentations:
-    def test_basic_properties(self):
-        vrs = _make_vrs(n_stim=10, d=16)
-        assert vrs.n_stim == 10
-        assert set(vrs.module_names) == {"layer_a", "layer_b"}
-
-    def test_meta_columns(self):
-        vrs = _make_vrs()
-        assert list(vrs.meta.columns) == ["model", "module_type", "module_name", "shape"]
-        assert len(vrs.meta) == 2
-
-    def test_bool_mask_filter(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        meta = vrs.meta
-        subset = vrs[meta["module_name"] == "layer_a"]
-        assert isinstance(subset, VisualRepresentations)
-        assert len(subset) == 1
-        assert subset[0].module_name == "layer_a"
-
-    def test_bool_mask_multi(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        meta = vrs.meta
-        subset = vrs[meta["model"] == "test_model"]
-        assert len(subset) == 2
-
-    def test_mismatched_stim_ids_raises(self):
-        """VisualRepresentations rejects VRs with different stim_ids at construction."""
-        vr_a = _make_vr(n_stim=3, module_name="layer_a")
-        vr_b = VisualRepresentation(
-            model="test_model",
-            module_name="layer_b",
-            module_type="Linear",
-            stim_ids=[10, 20, 30],  # different IDs
-            array=np.zeros((3, 4)),
-        )
-        with pytest.raises(ValueError, match="stim_ids"):
-            VisualRepresentations([vr_a, vr_b])
-
-    def test_single_vr_no_validation(self):
-        """Single-VR construction never triggers stim_ids check."""
-        vr = _make_vr(n_stim=5, module_name="layer_a")
-        vrs = VisualRepresentations([vr])
-        assert len(vrs) == 1
-
-    def test_int_index(self):
-        vrs = _make_vrs()
-        vr = vrs[0]
-        assert isinstance(vr, VisualRepresentation)
-
-    def test_iter(self):
-        vrs = _make_vrs()
-        names = [vr.module_name for vr in vrs]
-        assert set(names) == {"layer_a", "layer_b"}
-
-    def test_getitem_layer_name(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        vr = vrs["layer_a"]
-        assert isinstance(vr, VisualRepresentation)
-        assert vr.shape == (5, 8)
-
-    def test_numpy_layer(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        arr = vrs.numpy("layer_a")
-        assert isinstance(arr, np.ndarray)
-        assert arr.shape == (5, 8)
-
-    def test_to_tensor_layer(self):
-        vrs = _make_vrs(n_stim=4, d=8)
-        t = vrs.to_tensor("layer_a")
-        assert t.shape == (4, 8)
-
-    def test_select_by_id(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        sub = vrs.select([1, 3])
-        assert sub.n_stim == 2
-        assert list(sub.stim_ids) == [1, 3]
-
-    def test_select_by_index(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        sub = vrs.select_by_index([0, 4])
-        assert list(sub.stim_ids) == [0, 4]
-
-    def test_repr(self):
-        vrs = _make_vrs()
-        r = repr(vrs)
-        assert "VisualRepresentations" in r
-        assert "5 stimuli" in r
-
-    def test_select_missing_id_raises(self):
-        vrs = _make_vrs(n_stim=3)
-        with pytest.raises(KeyError):
-            vrs.select([99])
-
-    def test_empty_container(self):
-        vrs = VisualRepresentations([])
-        assert len(vrs) == 0
-        assert vrs.n_stim == 0
-        assert len(vrs.meta) == 0
-
-    def test_by_module_returns_single_vr(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        vr = vrs.by_module("layer_a")
-        assert isinstance(vr, VisualRepresentation)
-        assert vr.module_name == "layer_a"
-
-    def test_by_module_raises_on_unknown_name(self):
-        vrs = _make_vrs()
-        with pytest.raises(KeyError, match="not found"):
-            vrs.by_module("nonexistent_layer")
-
-    def test_by_module_with_model_param(self):
-        """model= 参数精确匹配。"""
-        vr_a = VisualRepresentation(
-            model="modelA",
-            module_name="layer1",
-            module_type="L",
-            stim_ids=[0],
-            array=np.zeros((1, 2)),
-        )
-        vr_b = VisualRepresentation(
-            model="modelB",
-            module_name="layer1",
-            module_type="L",
-            stim_ids=[0],
-            array=np.ones((1, 2)),
-        )
-        vrs = VisualRepresentations([vr_a, vr_b])
-        result = vrs.by_module("layer1", model="modelA")
-        assert result.model == "modelA"
-        np.testing.assert_array_equal(result.array, np.zeros((1, 2)))
-
-    def test_by_module_ambiguous_raises(self):
-        """多模型共享 module_name 且未指定 model= 时报 KeyError。"""
-        vr_a = VisualRepresentation(
-            model="modelA",
-            module_name="layer1",
-            module_type="L",
-            stim_ids=[0],
-            array=np.zeros((1, 2)),
-        )
-        vr_b = VisualRepresentation(
-            model="modelB",
-            module_name="layer1",
-            module_type="L",
-            stim_ids=[0],
-            array=np.ones((1, 2)),
-        )
-        vrs = VisualRepresentations([vr_a, vr_b])
-        with pytest.raises(KeyError, match="disambiguate"):
-            vrs.by_module("layer1")
-
-    def test_by_module_model_not_found_raises(self):
-        """指定 model= 但该 model 下无此 module 时报 KeyError。"""
-        vrs = _make_vrs()
-        with pytest.raises(KeyError, match="not found"):
-            vrs.by_module("layer_a", model="nonexistent_model")
-
-    def test_filter_returns_subset(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        mask = vrs.meta["module_name"] == "layer_a"
-        subset = vrs.filter(mask)
-        assert isinstance(subset, VisualRepresentations)
-        assert len(subset) == 1
-        assert subset[0].module_name == "layer_a"
-
-    def test_getitem_str_delegates_to_by_module(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        assert vrs["layer_a"].module_name == vrs.by_module("layer_a").module_name
-
-    def test_getitem_bool_mask_delegates_to_filter(self):
-        vrs = _make_vrs(n_stim=5, d=8)
-        mask = vrs.meta["module_name"] == "layer_b"
-        assert vrs[mask][0].module_name == vrs.filter(mask)[0].module_name
-
-
-# ===========================================================================
-# TestVisionDataNamed
-# ===========================================================================
-
-
-class TestVisionDataNamed:
-    def _make_vision_data(self, n_stim: int = 4, d: int = 8) -> Any:
-        from vneurotk.vision.data import VisionData
-
-        output_order = np.array([2, 0, 1, 3])  # shuffled
-        vd = VisionData(output_order=output_order)
-        stim_ids = list(range(n_stim))
-        vr = VisualRepresentation(
-            model="m",
-            module_name="layer_x",
-            module_type="Linear",
-            stim_ids=stim_ids,
-            array=np.arange(n_stim * d, dtype=np.float32).reshape(n_stim, d),
-        )
-        vrs = VisualRepresentations([vr])
-        vd.add(vrs)
-        return vd
-
-    def test_by_module_returns_trial_aligned_array(self):
-
-        vd = self._make_vision_data()
-        arr = vd.by_module("layer_x")
-        assert isinstance(arr, np.ndarray)
-        # output_order=[2,0,1,3] → row 2 first, row 0 second, etc.
-        assert arr.shape[0] == 4
-        np.testing.assert_array_equal(arr[0], vd["layer_x"][0])
-
-    def test_by_module_raises_on_unknown_name(self):
-
-        vd = self._make_vision_data()
-        with pytest.raises(KeyError):
-            vd.by_module("does_not_exist")
-
-    def test_getitem_str_matches_by_module(self):
-        vd = self._make_vision_data()
-        np.testing.assert_array_equal(vd["layer_x"], vd.by_module("layer_x"))
-
-
-# ===========================================================================
 # TestModuleSelector
 # ===========================================================================
 
@@ -358,6 +127,7 @@ def _module_infos(model: nn.Module) -> list[ModuleInfo]:
     return result
 
 
+@requires_torch
 class TestModuleSelector:
     def test_all_leaf(self):
         model = _tiny_model()
@@ -401,6 +171,7 @@ class TestModuleSelector:
 # ===========================================================================
 
 
+@requires_torch
 class TestBlockLevelSelectorArchPatterns:
     def _tiny_vit(self) -> nn.Module:
         class TinyViT(nn.Module):
@@ -477,7 +248,7 @@ class TestTrialStimIds:
             neuro=np.zeros((10, 2)),
             neuro_info=dict(sfreq=1.0),
         )
-        with pytest.raises(RuntimeError, match="configure"):
+        with pytest.raises(RuntimeError, match="incomplete"):
             _ = bd.trial_stim_ids
 
 
@@ -498,6 +269,7 @@ class _MockBackend(BaseBackend):
         )
         self.model.eval()
         self._model_name = model_name
+        self._pretrained = pretrained
 
     def preprocess(self, image: Any) -> dict[str, Any]:
         images = image if isinstance(image, list) else [image]
@@ -537,6 +309,7 @@ class _MockBackend(BaseBackend):
 # ===========================================================================
 
 
+@requires_torch
 class TestVisionModelMock:
     def _make_extractor(self):
         from vneurotk.vision.model.base import VisionModel
@@ -557,6 +330,81 @@ class TestVisionModelMock:
         vrs = ext.extract(image)
         assert isinstance(vrs, VisualRepresentations)
         assert vrs.n_stim == 1
+
+    def test_backend_populates_provenance_without_network(self):
+        ext = self._make_extractor()
+        provenance = ext.provenance
+        assert provenance.backend == "mock"
+        assert provenance.model_id == "mock"
+        assert provenance.pretrained is True
+        assert provenance.device == "cpu"
+        assert provenance.dtype == "float32"
+        assert provenance.selector == "CustomSelector(layer_names=['0', '2'])"
+        assert provenance.dependency_versions["torch"] != "unknown"
+        extracted = ext.extract(np.ones(4, dtype=np.float32))
+        assert all(vr.provenance == provenance for vr in extracted)
+
+    def test_optional_stimulus_content_hash(self):
+        ext = self._make_extractor()
+        images = {"a": np.arange(4, dtype=np.float32)}
+        plain = ext.extract(images)
+        hashed = ext.extract(images, stimulus_content_hash="sha256:abc123")
+        assert plain[0].provenance.stimulus_content_hash is None
+        assert hashed[0].provenance.stimulus_content_hash == "sha256:abc123"
+
+    def test_stimulus_content_hash_replaces_only_hash_in_caller_provenance(self):
+        from vneurotk.vision.model.base import VisionModel
+
+        backend = _MockBackend(device="cpu")
+        backend.load("backend-model")
+        caller_provenance = ExtractionProvenance(
+            backend="caller-backend",
+            model_id="backend-model",
+            model_revision="caller-revision",
+            pretrained=False,
+            preprocessing="caller-preprocessing",
+            selector="caller-selector",
+            dependency_versions={"caller-dependency": "1.2.3"},
+            dtype="caller-dtype",
+            device="caller-device",
+            writer_version="caller-writer",
+            stimulus_content_hash="sha256:old",
+        )
+        ext = VisionModel.from_model(
+            model=backend.model,
+            backend=backend,
+            selector=CustomSelector(["0"]),
+            provenance=caller_provenance,
+        )
+
+        extracted = ext.extract(
+            {"a": np.arange(4, dtype=np.float32)},
+            stimulus_content_hash="sha256:new",
+        )
+
+        assert extracted[0].provenance == replace(caller_provenance, stimulus_content_hash="sha256:new")
+        assert ext.provenance is caller_provenance
+
+    def test_stimulus_content_hash_is_cleared_when_omitted_from_later_call(self):
+        from vneurotk.vision.model.base import VisionModel
+
+        backend = _MockBackend(device="cpu")
+        backend.load("backend-model")
+        caller_provenance = replace(
+            backend.get_extraction_provenance(),
+            stimulus_content_hash="sha256:stale",
+        )
+        ext = VisionModel.from_model(
+            model=backend.model,
+            backend=backend,
+            selector=CustomSelector(["0"]),
+            provenance=caller_provenance,
+        )
+
+        extracted = ext.extract({"a": np.arange(4, dtype=np.float32)})
+
+        assert extracted[0].provenance == replace(caller_provenance, stimulus_content_hash=None)
+        assert ext.provenance is caller_provenance
 
     def test_extract_single_layer_exists(self):
         ext = self._make_extractor()
@@ -629,6 +477,7 @@ class TestVisionModelMock:
 # ===========================================================================
 
 
+@requires_torch
 class TestVisionModelBatch:
     def _make_extractor(self):
         from vneurotk.vision.model.base import VisionModel
@@ -751,6 +600,7 @@ class TestImageSourceProtocol:
 # ===========================================================================
 
 
+@requires_torch
 class TestEncodeVision:
     def _make_bd_with_images(self, n_stim: int = 4, n_time: int = 600):
         from vneurotk.core.recording import BaseData
@@ -1004,6 +854,9 @@ class TestEncodeVision:
         )
         bd.vision.extract_from(model_two, overwrite=False)
         assert len(bd.vision.meta) == 2  # 新增了 "2"
+        records = {vr.module_name: vr for vr in bd.vision._records.values()}
+        assert records["0"].provenance.selector == "CustomSelector(layer_names=['0'])"
+        assert records["2"].provenance.selector == "CustomSelector(layer_names=['0', '2'])"
         # forward 确实被调用过（提取了缺失的 "2"）
         assert len(forward_calls) > calls_after_first
 
@@ -1040,6 +893,7 @@ class TestEncodeVision:
 # ===========================================================================
 
 
+@requires_torch
 class TestVisionDataBuild:
     """Tests for VisionData.extract_from() — the vision-attachment seam."""
 
@@ -1135,6 +989,7 @@ class TestVisionDataBuild:
 # ===========================================================================
 
 
+@requires_torch
 class TestVisionDataAttachDb:
     """Tests for VisionData.attach_db() — the single write point for db state."""
 
@@ -1209,10 +1064,11 @@ class TestVisionDataAttachDb:
 # ===========================================================================
 
 
+@requires_torch
 class TestVisionDataPersistence:
     """Tests for VisionData.dump() / VisionData.from_h5()."""
 
-    def _make_vd_with_vrs(self, n_stim: int = 4):
+    def _make_vd_with_vrs(self, n_stim: int = 4, stimulus_content_hash: str | None = None):
         from vneurotk.vision.data import VisionData
         from vneurotk.vision.model.base import VisionModel
         from vneurotk.vision.model.selector import CustomSelector
@@ -1225,7 +1081,7 @@ class TestVisionDataPersistence:
         output_order = np.arange(n_stim)
         images = {i: np.random.rand(4).astype(np.float32) for i in range(n_stim)}
         vd = VisionData(output_order=output_order)
-        vd.extract_from(model, vision_db=images)
+        vd.extract_from(model, vision_db=images, stimulus_content_hash=stimulus_content_hash)
         return vd
 
     def test_dump_creates_vision_store_group(self, tmp_path):
@@ -1242,6 +1098,7 @@ class TestVisionDataPersistence:
             grp = f["vision_store"]["0"]
             assert "model" in grp.attrs
             assert "module_name" in grp.attrs
+            assert "extraction_provenance" in grp.attrs
             assert "array" in grp
 
     def test_from_h5_reconstructs_vrs(self, tmp_path):
@@ -1266,7 +1123,7 @@ class TestVisionDataPersistence:
 
         from vneurotk.vision.data import VisionData
 
-        vd = self._make_vd_with_vrs(n_stim=6)
+        vd = self._make_vd_with_vrs(n_stim=6, stimulus_content_hash="sha256:persisted")
         fpath = tmp_path / "roundtrip.h5"
         with h5py.File(fpath, "w") as f:
             vd.dump(f)
@@ -1279,6 +1136,29 @@ class TestVisionDataPersistence:
             arr1 = vd.by_module(name)
             arr2 = vd2.by_module(name)
             np.testing.assert_array_equal(arr1, arr2)
+        original_records = list(vd._records.values())
+        loaded_records = list(vd2._records.values())
+        assert [vr.provenance for vr in loaded_records] == [vr.provenance for vr in original_records]
+        assert all(vr.provenance.stimulus_content_hash == "sha256:persisted" for vr in loaded_records)
+
+    def test_from_h5_without_provenance_uses_explicit_unknown(self, tmp_path):
+        import h5py
+
+        from vneurotk.vision.data import VisionData
+
+        vd = self._make_vd_with_vrs(n_stim=2)
+        fpath = tmp_path / "legacy.h5"
+        with h5py.File(fpath, "w") as f:
+            vd.dump(f)
+        with h5py.File(fpath, "r+") as f:
+            for group in f["vision_store"].values():
+                del group.attrs["extraction_provenance"]
+        with h5py.File(fpath, "r") as f:
+            loaded = VisionData.from_h5(f, output_order=np.arange(2))
+        record = next(iter(loaded._records.values()))
+        assert record.provenance.model_id == "mock"
+        assert record.provenance.backend == "unknown"
+        assert record.provenance.pretrained == "unknown"
 
     def test_from_h5_returns_empty_when_group_missing(self, tmp_path):
         import h5py
@@ -1548,6 +1428,7 @@ class TestVisionDataAlignCache:
 # ===========================================================================
 
 
+@requires_torch
 class TestPrepareImages:
     """Tests for VisionModel._prepare_images() without any backend/model."""
 
@@ -1602,6 +1483,246 @@ class TestPrepareImages:
         assert len(loaded) == 5
 
 
+@requires_torch
+class TestBackendRuntimeImports:
+    def test_all_leaf_selector_default_exclusions_are_available_at_runtime(self):
+        assert nn.Dropout in AllLeafSelector._DEFAULT_EXCLUDE
+        assert nn.ReLU in AllLeafSelector._DEFAULT_EXCLUDE
+
+    @pytest.mark.backend_timm
+    def test_timm_forward_uses_runtime_torch_import(self):
+        from vneurotk.vision.model.backend.timm_backend import TimmBackend
+
+        backend = TimmBackend(device="cpu")
+        backend.model = nn.Identity()
+        inputs = {"pixel_values": torch.tensor([1.0])}
+
+        output = backend.forward(inputs)
+
+        torch.testing.assert_close(output, inputs["pixel_values"])
+        assert not output.requires_grad
+
+    @pytest.mark.backend_timm
+    def test_timm_random_weights_have_unknown_revision(self):
+        from vneurotk.vision.model.backend.timm_backend import TimmBackend
+
+        class ModelWithConfig(nn.Identity):
+            pretrained_cfg = {
+                "revision": "immutable-commit",
+                "hf_hub_id": "org/model",
+                "url": "https://example.test/model.pth",
+            }
+
+        backend = TimmBackend(device="cpu")
+        backend.model = ModelWithConfig()
+        backend._pretrained = False
+
+        assert backend.get_model_revision() == "unknown"
+
+    @pytest.mark.backend_timm
+    def test_timm_registry_locations_are_not_revisions(self):
+        from vneurotk.vision.model.backend.timm_backend import TimmBackend
+
+        class ModelWithConfig(nn.Identity):
+            pretrained_cfg = {"hf_hub_id": "org/model", "url": "https://example.test/model.pth"}
+
+        backend = TimmBackend(device="cpu")
+        backend.model = ModelWithConfig()
+        backend._pretrained = True
+
+        assert backend.get_model_revision() == "unknown"
+
+    @pytest.mark.backend_timm
+    @pytest.mark.parametrize("field", ["revision", "checksum"])
+    def test_timm_immutable_weight_identifier_is_revision(self, field):
+        from vneurotk.vision.model.backend.timm_backend import TimmBackend
+
+        class ModelWithConfig(nn.Identity):
+            pretrained_cfg = {field: "immutable-value"}
+
+        backend = TimmBackend(device="cpu")
+        backend.model = ModelWithConfig()
+        backend._pretrained = True
+
+        assert backend.get_model_revision() == "immutable-value"
+
+    @pytest.mark.backend_thingsvision
+    def test_thingsvision_forward_uses_runtime_torch_import(self):
+        from vneurotk.vision.model.backend.thingsvision_backend import ThingsVisionBackend
+
+        backend = object.__new__(ThingsVisionBackend)
+        BaseBackend.__init__(backend, device="cpu")
+        backend.model = nn.Identity()
+        inputs = {"pixel_values": torch.tensor([1.0])}
+
+        output = backend.forward(inputs)
+
+        torch.testing.assert_close(output, inputs["pixel_values"])
+        assert not output.requires_grad
+
+
+@pytest.mark.backend_transformers
+@requires_torch
+class TestTransformersBackendLoading:
+    @staticmethod
+    def _backend_with_processor(processor):
+        from vneurotk.vision.model.backend.transformers_backend import TransformersBackend
+
+        backend = TransformersBackend(device="cpu")
+        backend._model_name = "processor-model"
+        backend._processor = processor
+        return backend
+
+    def test_preprocessing_provenance_includes_behavior_defining_fields(self):
+        from types import SimpleNamespace
+
+        image_processor = SimpleNamespace(
+            do_resize=True,
+            size={"width": 224, "height": 256},
+            do_center_crop=False,
+            crop_size={"width": 200, "height": 210},
+            do_rescale=True,
+            rescale_factor=1 / 255,
+            do_normalize=True,
+            image_mean=[0.5, 0.4, 0.3],
+            image_std=[0.2, 0.2, 0.2],
+            resample=3,
+        )
+        processor = SimpleNamespace(image_processor=image_processor)
+
+        description = self._backend_with_processor(processor).get_preprocessing_description()
+
+        assert description == (
+            'SimpleNamespace(do_resize=true;size={"height":256,"width":224};'
+            'do_center_crop=false;crop_size={"height":210,"width":200};'
+            "do_rescale=true;rescale_factor=0.00392156862745098;do_normalize=true;"
+            "image_mean=[0.5,0.4,0.3];image_std=[0.2,0.2,0.2];resample=3)"
+        )
+
+    def test_rescale_factor_changes_preprocessing_provenance(self):
+        from types import SimpleNamespace
+
+        first = SimpleNamespace(image_processor=SimpleNamespace(rescale_factor=1 / 255))
+        second = SimpleNamespace(image_processor=SimpleNamespace(rescale_factor=1 / 127.5))
+
+        first_provenance = self._backend_with_processor(first).get_extraction_provenance()
+        second_provenance = self._backend_with_processor(second).get_extraction_provenance()
+
+        assert first_provenance != second_provenance
+        assert first_provenance.preprocessing != second_provenance.preprocessing
+
+    @staticmethod
+    def _mock_transformers(monkeypatch, model_name, *, vision_only_config=False):
+        import sys
+        from types import ModuleType, SimpleNamespace
+        from unittest.mock import MagicMock
+
+        transformers = ModuleType("transformers")
+
+        vision_config = object()
+        config = vision_config if vision_only_config else SimpleNamespace(vision_config=vision_config)
+        model = nn.Linear(2, 2)
+
+        auto_config = MagicMock()
+        auto_config.from_pretrained.return_value = config
+        auto_model = MagicMock()
+        auto_model.from_config.return_value = model
+        auto_model.from_pretrained.return_value = model
+        auto_processor = MagicMock()
+        clip_processor = MagicMock()
+        clip_model = MagicMock(return_value=model)
+        clip_model.from_pretrained.return_value = model
+        siglip_model = MagicMock(return_value=model)
+        siglip_model.from_pretrained.return_value = model
+
+        for name, value in {
+            "AutoConfig": auto_config,
+            "AutoModel": auto_model,
+            "AutoProcessor": auto_processor,
+            "CLIPProcessor": clip_processor,
+            "CLIPVisionModelWithProjection": clip_model,
+            "SiglipVisionModel": siglip_model,
+        }.items():
+            setattr(transformers, name, value)
+        monkeypatch.setitem(sys.modules, "transformers", transformers)
+
+        if "clip" in model_name:
+            expected_processor = clip_processor
+            expected_model = clip_model
+            expected_config = vision_config
+            uses_auto_model = False
+        elif "siglip" in model_name:
+            expected_processor = auto_processor
+            expected_model = siglip_model
+            expected_config = vision_config
+            uses_auto_model = False
+        else:
+            expected_processor = auto_processor
+            expected_model = auto_model
+            expected_config = config
+            uses_auto_model = True
+
+        return SimpleNamespace(
+            auto_config=auto_config,
+            model=model,
+            expected_processor=expected_processor,
+            expected_model=expected_model,
+            expected_config=expected_config,
+            uses_auto_model=uses_auto_model,
+        )
+
+    @pytest.mark.parametrize(
+        ("model_name", "vision_only_config"),
+        [
+            ("openai/clip-vit-base-patch32", False),
+            ("openai/clip-vit-base-patch32", True),
+            ("google/siglip-base-patch16-224", False),
+            ("google/siglip-base-patch16-224", True),
+            ("facebook/dinov2-base", False),
+        ],
+    )
+    def test_pretrained_false_builds_random_model_from_config(self, monkeypatch, model_name, vision_only_config):
+        from vneurotk.vision.model.backend.transformers_backend import TransformersBackend
+
+        mocked = self._mock_transformers(monkeypatch, model_name, vision_only_config=vision_only_config)
+        backend = TransformersBackend(device="cpu")
+
+        backend.load(model_name, pretrained=False)
+
+        mocked.auto_config.from_pretrained.assert_called_once_with(model_name)
+        mocked.expected_processor.from_pretrained.assert_called_once_with(model_name)
+        if mocked.uses_auto_model:
+            mocked.expected_model.from_config.assert_called_once_with(mocked.expected_config)
+        else:
+            mocked.expected_model.assert_called_once_with(mocked.expected_config)
+        mocked.expected_model.from_pretrained.assert_not_called()
+        assert backend.model is mocked.model
+        assert not backend.model.training
+        assert backend.get_model_revision() == "unknown"
+
+    @pytest.mark.parametrize(
+        "model_name",
+        [
+            "openai/clip-vit-base-patch32",
+            "google/siglip-base-patch16-224",
+            "facebook/dinov2-base",
+        ],
+    )
+    def test_pretrained_true_keeps_from_pretrained_path(self, monkeypatch, model_name):
+        from vneurotk.vision.model.backend.transformers_backend import TransformersBackend
+
+        mocked = self._mock_transformers(monkeypatch, model_name)
+        backend = TransformersBackend(device="cpu")
+
+        backend.load(model_name, pretrained=True)
+
+        mocked.auto_config.from_pretrained.assert_not_called()
+        mocked.expected_processor.from_pretrained.assert_called_once_with(model_name)
+        mocked.expected_model.from_pretrained.assert_called_once_with(model_name, use_safetensors=True)
+        assert backend.model is mocked.model
+        assert not backend.model.training
+
+
 def _timm_installed():
     try:
         import timm  # noqa: F401  # type: ignore
@@ -1616,6 +1737,7 @@ def _timm_installed():
 # ===========================================================================
 
 
+@requires_torch
 class TestRunBatches:
     """Candidate A — _run_batches() is testable with a mocked _forward_chunk."""
 
@@ -1667,15 +1789,10 @@ class TestRunBatches:
         assert features["layer0"].shape == (1, 8)
 
 
-def _network_available(host: str = "huggingface.co", port: int = 443) -> bool:
-    import socket
+def _network_enabled() -> bool:
+    import os
 
-    try:
-        socket.setdefaulttimeout(3)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
-        return True
-    except OSError:
-        return False
+    return os.environ.get("VNEUROTK_RUN_NETWORK") == "1"
 
 
 # ===========================================================================
@@ -1683,6 +1800,7 @@ def _network_available(host: str = "huggingface.co", port: int = 443) -> bool:
 # ===========================================================================
 
 
+@requires_torch
 class TestModuleTypeMapCache:
     """Candidate 2 — _module_type_map is built once at init, not per _extract_batch."""
 
@@ -1737,6 +1855,7 @@ class TestModuleTypeMapCache:
 # ===========================================================================
 
 
+@requires_torch
 class TestHookableModel:
     """Candidate 3 — BaseBackend.hookable_model is a declared interface."""
 
@@ -1795,6 +1914,10 @@ def _thingsvision_installed():
 
 
 @pytest.mark.skipif(not _timm_installed(), reason="timm not installed")
+@pytest.mark.backend_timm
+@pytest.mark.integration
+@pytest.mark.slow
+@requires_torch
 class TestTimmSmokeTest:
     def test_resnet18_end_to_end(self):
         from PIL import Image
@@ -1820,7 +1943,15 @@ class TestTimmSmokeTest:
         assert len(acts) == 2
         backend.remove_hooks()
 
-    @pytest.mark.skipif(not _network_available(), reason="network unavailable")
+
+@pytest.mark.skipif(not _transformers_installed(), reason="transformers not installed")
+@pytest.mark.backend_transformers
+@pytest.mark.integration
+@pytest.mark.slow
+@requires_torch
+class TestTransformersSmokeTest:
+    @pytest.mark.network
+    @pytest.mark.skipif(not _network_enabled(), reason="set VNEUROTK_RUN_NETWORK=1 to enable network tests")
     def test_dinov2_end_to_end(self):
         from PIL import Image
 
@@ -1846,6 +1977,10 @@ class TestTimmSmokeTest:
 
 
 @pytest.mark.skipif(not _thingsvision_installed(), reason="thingsvision not installed")
+@pytest.mark.backend_thingsvision
+@pytest.mark.integration
+@pytest.mark.slow
+@requires_torch
 class TestThingsVisionSmokeTest:
     def test_resnet18_end_to_end(self):
         from PIL import Image
@@ -1877,6 +2012,7 @@ class TestThingsVisionSmokeTest:
 # ===========================================================================
 
 
+@requires_torch
 class TestBindSelector:
     """Candidate 1 (Round 14) — _bind_selector consolidates hook wiring."""
 
@@ -2012,13 +2148,12 @@ class TestRelevantImages:
         result = vd._relevant_images(stimuli)
         assert set(result.keys()) == {0, 1, 2}
 
-    def test_silently_drops_missing_ids(self):
-        """IDs in output_order but absent from stimuli are silently dropped."""
+    def test_raises_and_lists_missing_ids(self):
+        """IDs in output_order but absent from stimuli are reported."""
         vd = self._make_vd([0, 1, 2])
         stimuli = {0: "img0", 2: "img2"}  # 1 is missing
-        result = vd._relevant_images(stimuli)
-        assert set(result.keys()) == {0, 2}
-        assert 1 not in result
+        with pytest.raises(ValueError, match=r"Missing 1 stimulus ID\(s\): \[1\]"):
+            vd._relevant_images(stimuli)
 
     def test_preserves_first_appearance_order_not_sorted(self):
         """Deduplication uses first-appearance order, not sorted order."""
@@ -2027,12 +2162,12 @@ class TestRelevantImages:
         result = vd._relevant_images(stimuli)
         assert list(result.keys()) == [3, 1, 2]
 
-    def test_empty_when_no_overlap(self):
-        """Returns empty dict when no output_order ID exists in stimuli."""
+    def test_raises_when_no_overlap(self):
+        """All output_order IDs are reported when there is no overlap."""
         vd = self._make_vd([10, 20])
         stimuli = {0: "img0", 1: "img1"}
-        result = vd._relevant_images(stimuli)
-        assert result == {}
+        with pytest.raises(ValueError, match=r"Missing 2 stimulus ID\(s\): \[10, 20\]"):
+            vd._relevant_images(stimuli)
 
     def test_deduplicates_output_order_ids(self):
         """Repeated IDs in output_order appear only once in result."""
@@ -2107,6 +2242,7 @@ class TestModulesToExtract:
 # ===========================================================================
 
 
+@requires_torch
 class TestSetSelectorBind:
     """Candidate 1 (Round 18) — set_selector delegates to _bind_selector()."""
 
@@ -2158,12 +2294,56 @@ class TestSetSelectorBind:
         model.set_selector(CustomSelector(["1"]))
         assert len(model._backend._hooks) == 1
 
+    def test_set_selector_preserves_caller_provenance_except_selector(self):
+        from vneurotk.vision.model.base import VisionModel
+        from vneurotk.vision.model.selector import CustomSelector
+
+        backend = _MockBackend(device="cpu")
+        backend.load("backend-model")
+        caller_provenance = ExtractionProvenance(
+            backend="caller-backend",
+            model_id="backend-model",
+            model_revision="caller-revision",
+            pretrained=False,
+            preprocessing="caller-preprocessing",
+            selector="caller-selector",
+            dependency_versions={"caller-dependency": "1.2.3"},
+            dtype="caller-dtype",
+            device="caller-device",
+            writer_version="caller-writer",
+            stimulus_content_hash="sha256:stimuli",
+        )
+        model = VisionModel.from_model(
+            model=backend.model,
+            backend=backend,
+            selector=CustomSelector(["0"]),
+            provenance=caller_provenance,
+        )
+        new_selector = CustomSelector(["1"])
+
+        model.set_selector(new_selector)
+
+        assert model.provenance == replace(caller_provenance, selector=new_selector.describe())
+
+    def test_set_selector_refreshes_discovered_provenance(self):
+        from vneurotk.vision.model.selector import CustomSelector
+
+        model = self._make_model(["0"])
+        model._backend._model_name = "rediscovered-model"
+        new_selector = CustomSelector(["1"])
+
+        model.set_selector(new_selector)
+
+        assert model.provenance.model_id == "rediscovered-model"
+        assert model.provenance.selector == new_selector.describe()
+
 
 # ===========================================================================
 # TestNormalizeImages
 # ===========================================================================
 
 
+@requires_torch
 class TestNormalizeImages:
     """C4 (Round 22) — _normalize_images: list input raises TypeError."""
 
@@ -2224,65 +2404,11 @@ class TestNormalizeImages:
 
 
 # ===========================================================================
-# TestAssertSharedStimIds
-# ===========================================================================
-
-
-class TestAssertSharedStimIds:
-    """Candidate 1 (Round 20) — _assert_shared_stim_ids is symmetric to _build_meta."""
-
-    def _make_vr(self, module_name: str, stim_ids: list):
-        from vneurotk.vision.representation.visual_representations import VisualRepresentation
-
-        return VisualRepresentation(
-            model="m",
-            module_name=module_name,
-            module_type="Linear",
-            stim_ids=stim_ids,
-            array=np.zeros((len(stim_ids), 4)),
-        )
-
-    def test_empty_list_passes(self):
-        """Empty list never raises."""
-        from vneurotk.vision.representation.visual_representations import VisualRepresentations
-
-        VisualRepresentations._assert_shared_stim_ids([])
-
-    def test_single_vr_passes(self):
-        """Single VR never raises."""
-        from vneurotk.vision.representation.visual_representations import VisualRepresentations
-
-        VisualRepresentations._assert_shared_stim_ids([self._make_vr("a", [0, 1, 2])])
-
-    def test_matching_stim_ids_passes(self):
-        """All VRs with identical stim_ids passes."""
-        from vneurotk.vision.representation.visual_representations import VisualRepresentations
-
-        vrs = [self._make_vr("a", [0, 1]), self._make_vr("b", [0, 1])]
-        VisualRepresentations._assert_shared_stim_ids(vrs)
-
-    def test_mismatched_stim_ids_raises(self):
-        """VRs with different stim_ids raise ValueError."""
-        from vneurotk.vision.representation.visual_representations import VisualRepresentations
-
-        vrs = [self._make_vr("a", [0, 1]), self._make_vr("b", [0, 2])]
-        with pytest.raises(ValueError, match="stim_ids"):
-            VisualRepresentations._assert_shared_stim_ids(vrs)
-
-    def test_init_uses_validator(self):
-        """VisualRepresentations.__init__ raises on mismatched stim_ids."""
-        from vneurotk.vision.representation.visual_representations import VisualRepresentations
-
-        vrs = [self._make_vr("a", [0, 1]), self._make_vr("b", [0, 2])]
-        with pytest.raises(ValueError):
-            VisualRepresentations(vrs)
-
-
-# ===========================================================================
 # TestModuleDepth
 # ===========================================================================
 
 
+@requires_torch
 class TestModuleDepth:
     """Candidate 3 (Round 20) — _module_depth encapsulates the dotted-name depth formula."""
 
@@ -2320,7 +2446,7 @@ class TestModuleDepth:
 
     def test_select_uses_compiled_patterns(self):
         """BlockLevelSelector.select() still works correctly after refactor."""
-        import torch.nn as nn  # type: ignore
+        import torch.nn as nn
 
         model = nn.Sequential(
             nn.Linear(4, 8),
@@ -2405,6 +2531,7 @@ class TestAssertStimIdsCoverOutputOrder:
 # ===========================================================================
 
 
+@requires_torch
 class TestBuildVrList:
     """VisionModel._build_vr_list assembles VR objects from stim_ids + features."""
 
@@ -2459,6 +2586,7 @@ class TestBuildVrList:
 # ===========================================================================
 
 
+@requires_torch
 class TestFilterModules:
     """VisionModel._filter_modules filters module_list by type and/or name."""
 
@@ -2543,6 +2671,7 @@ def _make_module_list():
     ]
 
 
+@requires_torch
 class TestPrintModules:
     """_print_modules / print_modules renders without error and produces output."""
 

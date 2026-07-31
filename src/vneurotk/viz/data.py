@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-import matplotlib.colors as mcolors  # type: ignore
-import matplotlib.pyplot as plt  # type: ignore
+from collections.abc import Sequence
+from numbers import Integral, Real
+from typing import TypeAlias, cast
+
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
 from loguru import logger
 
 from .utils import _is_null, _smart_ticks, _truncate_label
+
+PlotNumber: TypeAlias = int | float | np.integer | np.floating
+PlotWindow: TypeAlias = Sequence[PlotNumber]
 
 
 def plot_data(
@@ -15,7 +22,7 @@ def plot_data(
     visual: np.ndarray,
     sfreq: float,
     trial: np.ndarray | None = None,
-    trial_window: list | None = None,
+    trial_window: PlotWindow | Sequence[PlotWindow] | None = None,
     figsize: tuple[float, float] = (6, 3),
     window: tuple[float, float] = (0.0, 5.0),
     cmap_neuro: str = "Greys",
@@ -37,10 +44,12 @@ def plot_data(
         Trial-ID vector, shape ``(n_samples,)``.  When provided together
         with *trial_window*, every in-trial timepoint is scatter-plotted
         and coloured by its position inside the trial window.
-    trial_window : list of float or int, or None
-        Two-element ``[start, end]`` relative to stimulus onset.
-        *float* values are interpreted as **seconds**, *int* values as
-        **samples** (same convention as ``BaseData.configure``).
+    trial_window : list of real, list of two-value lists, or None
+        A single ``[start, end]`` relative to stimulus onset, or one such
+        window per trial ID.  Per-trial windows support epochs whose stimulus
+        onset differs between trials.  Real non-integral values are interpreted
+        as **seconds** and integral values as **samples** (same convention as
+        ``BaseData.configure``).
     figsize : tuple of float
         Figure size ``(width, height)`` in inches.
     window : tuple of float | int
@@ -60,14 +69,10 @@ def plot_data(
     matplotlib.figure.Figure
         The generated figure.
     """
-    # -- Convert window to samples (float=seconds, int=samples) --
-    s_start = max(int(round(window[0] * sfreq)), 0) if isinstance(window[0], float) else max(int(window[0]), 0)
-    s_end = (
-        min(int(round(window[1] * sfreq)), neuro.shape[0])
-        if isinstance(window[1], float)
-        else min(int(window[1]), neuro.shape[0])
-    )
-    if isinstance(window[0], float):
+    # -- Convert window to samples (non-integral real=seconds, integral=samples) --
+    s_start = max(_plot_bound_to_sample(window[0], sfreq), 0)
+    s_end = min(_plot_bound_to_sample(window[1], sfreq), neuro.shape[0])
+    if isinstance(window[0], Real) and not isinstance(window[0], Integral):
         logger.info("plot window: {}-{} s (samples {}-{}).", window[0], window[1], s_start, s_end)
     else:
         logger.info("plot window: {}-{} samples.", s_start, s_end)
@@ -78,8 +83,7 @@ def plot_data(
 
     # -- Parse labels --
     if trial is not None and trial_window is not None:
-        # Convert trial_window to samples (float=seconds, int=samples)
-        tw_samples = [int(round(v * sfreq)) if isinstance(v, float) else int(v) for v in trial_window]
+        tw_samples = _trial_windows_to_samples(trial_window, sfreq)
         # Build stim_map from FULL arrays so edge-of-window trials are covered
         full_stim_map: dict[int, str] = {}
         for i in range(len(visual)):
@@ -193,6 +197,25 @@ def plot_data(
     fig.align_ylabels([ax_y, ax_x])
 
     return fig
+
+
+def _plot_bound_to_sample(value: PlotNumber, sfreq: float) -> int:
+    """Convert one plotting bound using the public real/integral convention."""
+    if isinstance(value, Integral):
+        return int(value)
+    return int(round(float(value) * sfreq))
+
+
+def _trial_windows_to_samples(
+    trial_window: PlotWindow | Sequence[PlotWindow],
+    sfreq: float,
+) -> list[int] | list[list[int]]:
+    """Convert a shared or per-trial plotting window to sample offsets."""
+    if len(trial_window) == 2 and all(isinstance(value, Real) for value in trial_window):
+        shared = cast(PlotWindow, trial_window)
+        return [_plot_bound_to_sample(value, sfreq) for value in shared]
+    per_trial = cast(Sequence[PlotWindow], trial_window)
+    return [[_plot_bound_to_sample(value, sfreq) for value in window] for window in per_trial]
 
 
 def _build_trial_cmap(
@@ -318,7 +341,7 @@ def _parse_labels(y_win: np.ndarray):
 def _parse_labels_with_trial(
     y_win: np.ndarray,
     trial_win: np.ndarray,
-    trial_window: list,
+    trial_windows: list[int] | list[list[int]],
     sfreq: float,
     stim_map: dict[int, str] | None = None,
 ):
@@ -330,8 +353,9 @@ def _parse_labels_with_trial(
         Sliced visual array (length *n*).
     trial_win : np.ndarray
         Sliced trial array (length *n*).  Non-NaN values give the trial ID.
-    trial_window : list of int
-        ``[start, end]`` in samples relative to onset.
+    trial_windows : list of int or list of two-int lists
+        Shared ``[start, end]`` in samples relative to onset, or one window
+        per trial ID.
     sfreq : float
         Sampling frequency.
     stim_map : dict or None
@@ -346,8 +370,9 @@ def _parse_labels_with_trial(
         **every** in-trial timepoint (not just onsets).
     """
     n = len(y_win)
-    tw_start, tw_end = trial_window
-    trial_len = tw_end - tw_start
+    shared_window = len(trial_windows) == 2 and all(isinstance(value, Integral) for value in trial_windows)
+    shared_trial_window = cast(list[int], trial_windows) if shared_window else None
+    per_trial_windows = cast(list[list[int]], trial_windows) if not shared_window else None
 
     # --- identify in-trial timepoints ---
     is_in_trial = np.array([not _is_null(v) for v in trial_win])
@@ -374,6 +399,13 @@ def _parse_labels_with_trial(
         mask = np.array([is_in_trial[i] and int(trial_win[i]) == tid for i in range(n)])
         indices = np.where(mask)[0]
         count = len(indices)
+        if shared_trial_window is not None:
+            trial_window = shared_trial_window
+        else:
+            assert per_trial_windows is not None
+            trial_window = per_trial_windows[tid]
+        tw_start, tw_end = trial_window
+        trial_len = tw_end - tw_start
 
         # y category
         stim_label = stim_map.get(tid)

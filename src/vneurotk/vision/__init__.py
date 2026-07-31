@@ -1,56 +1,58 @@
-"""vneurotk.vision — DNN vision representation module."""
+"""Vision data, metadata, representations, and optional model support."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from vneurotk.vision._cache import find_cached_models, print_cached_models
+from vneurotk.vision.data import VisionData
 from vneurotk.vision.image_source import ImageSource
-from vneurotk.vision.meta import ModelInfo, ModuleInfo
-from vneurotk.vision.representation.visual_representations import (
-    VisualRepresentation,
-    VisualRepresentations,
-)
+from vneurotk.vision.meta import ExtractionProvenance, ModelInfo, ModuleInfo
+from vneurotk.vision.representation import VisualRepresentation, VisualRepresentations
 
-# Model symbols require torch — imported lazily to allow torch-free usage
-# of representation and cache utilities.
 _MODEL_EXPORTS: dict[str, str] = {
-    "VisionModel": "vneurotk.vision.model.base",
-    "print_modules": "vneurotk.vision.model.base",
-    "ModuleSelector": "vneurotk.vision.model.selector",
-    "BlockLevelSelector": "vneurotk.vision.model.selector",
-    "AllLeafSelector": "vneurotk.vision.model.selector",
-    "CustomSelector": "vneurotk.vision.model.selector",
+    "VisionModel": "vneurotk.vision.model",
+    "print_modules": "vneurotk.vision.model",
+    "ModuleSelector": "vneurotk.vision.model",
+    "BlockLevelSelector": "vneurotk.vision.model",
+    "AllLeafSelector": "vneurotk.vision.model",
+    "CustomSelector": "vneurotk.vision.model",
 }
 
 __all__ = [
-    "VisionModel",
-    "print_modules",
-    "ModuleSelector",
-    "BlockLevelSelector",
     "AllLeafSelector",
+    "BlockLevelSelector",
     "CustomSelector",
+    "ExtractionProvenance",
+    "ImageSource",
     "ModelInfo",
     "ModuleInfo",
+    "ModuleSelector",
+    "VisionData",
+    "VisionModel",
     "VisualRepresentation",
     "VisualRepresentations",
-    "ImageSource",
+    "find_cached_models",
+    "print_cached_models",
+    "print_modules",
 ]
 
 
 def __getattr__(name: str) -> Any:
+    """Load model APIs only when they are requested."""
     if name in _MODEL_EXPORTS:
         import importlib
 
-        module = importlib.import_module(_MODEL_EXPORTS[name])
-        return getattr(module, name)
+        return getattr(importlib.import_module(_MODEL_EXPORTS[name]), name)
     raise AttributeError(f"module 'vneurotk.vision' has no attribute {name!r}")
 
 
 if TYPE_CHECKING:
-    from vneurotk.vision.model.base import VisionModel, print_modules  # noqa: F401
-    from vneurotk.vision.model.selector import (  # noqa: F401
+    from vneurotk.vision.model import (  # noqa: F401
         AllLeafSelector,
         BlockLevelSelector,
         CustomSelector,
         ModuleSelector,
+        VisionModel,
+        print_modules,
     )

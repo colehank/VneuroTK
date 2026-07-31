@@ -9,7 +9,7 @@ from loguru import logger
 if TYPE_CHECKING:
     import torch  # type: ignore
 
-from vneurotk.vision.meta import ModelInfo
+from vneurotk.vision.meta import UNKNOWN, ModelInfo
 from vneurotk.vision.model.backend.base import BaseBackend
 
 __all__ = ["TimmBackend"]
@@ -35,6 +35,7 @@ class TimmBackend(BaseBackend):
         super().__init__(device)
         self._model_name: str = ""
         self._transform = None
+        self._data_config: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # BaseBackend interface
@@ -54,7 +55,7 @@ class TimmBackend(BaseBackend):
             import timm  # type: ignore
             from timm.data import create_transform, resolve_data_config  # type: ignore
         except ImportError as exc:
-            raise ImportError("timm is required for TimmBackend.  Install with: uv add timm") from exc
+            raise ImportError("timm is required for TimmBackend. Install it with: uv add 'vneurotk[timm]'") from exc
 
         logger.info("Loading timm model: {} (pretrained={})", model_name, pretrained)
         self.model = timm.create_model(model_name, pretrained=pretrained)
@@ -62,8 +63,10 @@ class TimmBackend(BaseBackend):
         self.model.to(self.device)
 
         self._model_name = model_name
+        self._pretrained = pretrained
         cfg = self.model.pretrained_cfg if hasattr(self.model, "pretrained_cfg") else {}
         data_config = resolve_data_config(cfg or {})
+        self._data_config = dict(data_config)
         self._transform = create_transform(**data_config)
         logger.info("Loaded timm model: {}", model_name)
 
@@ -101,6 +104,8 @@ class TimmBackend(BaseBackend):
         Tensor
             Model output, shape ``(1, n_classes)`` or ``(1, D)``.
         """
+        import torch  # type: ignore
+
         if self.model is None:
             raise RuntimeError("Model not loaded. Call load() first.")
         px = self._move_to_device(inputs)["pixel_values"]
@@ -110,6 +115,26 @@ class TimmBackend(BaseBackend):
     def get_model_meta(self) -> ModelInfo:
         """Return ModelInfo for the loaded timm model."""
         return ModelInfo(model_id=self._model_name, backend="timm")
+
+    def dependency_names(self) -> tuple[str, ...]:
+        """Return timm extraction dependencies."""
+        return ("torch", "timm", "torchvision", "Pillow")
+
+    def get_preprocessing_description(self) -> str:
+        """Describe the resolved timm data config deterministically."""
+        if not self._data_config:
+            return "unknown"
+        return ";".join(f"{key}={self._data_config[key]!r}" for key in sorted(self._data_config))
+
+    def get_model_revision(self) -> str:
+        """Return an immutable identifier for loaded pretrained weights."""
+        if self._pretrained is not True:
+            return UNKNOWN
+        config = getattr(self.model, "pretrained_cfg", {}) or {}
+        for key in ("revision", "checksum"):
+            if config.get(key):
+                return str(config[key])
+        return super().get_model_revision()
 
     # ------------------------------------------------------------------
     # Private helpers
