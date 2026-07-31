@@ -10,17 +10,25 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, TypeAlias, cast
 
 import numpy as np
 from loguru import logger
 
 from vneurotk.core.info import Info
-from vneurotk.core.stimulus import StimulusSet
+from vneurotk.core.metadata import NeuroInfo, TrialInfo, VisionInfo
+from vneurotk.core.stimulus import StimulusSet, _coerce_scalar_array
 from vneurotk.neuro.base import NeuroData
-from vneurotk.neuro.trial import TrialStructure, build_trial_structure_continuous, build_trial_structure_epochs
+from vneurotk.neuro.trial import (
+    TrialStructure,
+    build_trial_structure_continuous,
+    build_trial_structure_epochs,
+    validate_trial_structure_state,
+)
 
 NeuroLoader = Callable[[], np.ndarray]  # lazy loader contract
+DataMode: TypeAlias = Literal["continuous", "epochs", "patterns"]
+_VALID_DATA_MODES = frozenset(("continuous", "epochs", "patterns"))
 
 
 class BaseData:
@@ -34,19 +42,22 @@ class BaseData:
         ``(n_trials, n_timebins, nchan)`` → ``data_mode="epochs"``;
         ``(n, nchan)`` with ``data_mode="patterns"`` for aggregated data.
     neuro_info : dict
-        Metadata dict.  Required key: ``sfreq``.  Optional keys:
-        ``ch_names``, ``highpass``, ``lowpass``, ``source_file``, ``shape``.
+        Mutable dictionary compatible with :class:`NeuroInfo`. ``sfreq`` is
+        required for time-based operations. Optional keys include ``ch_names``,
+        ``highpass``, ``lowpass``, ``source_file``, and ``shape``.
     stim_labels : np.ndarray | None
         Internal stimulus-label array of shape ``(ntime,)`` or
         ``(n_trials, n_timebins)``.  ``np.nan`` at non-stimulus timepoints,
         stimulus ID at onset timepoints.  Not exposed directly; use
         :attr:`trial_stim_ids`.
     vision_info : dict | None
-        Dict with ``n_stim`` (int) and ``stim_ids`` (list).
+        Mutable dictionary compatible with :class:`VisionInfo`; commonly
+        contains ``n_stim`` and ``stim_ids``.
     trial : np.ndarray | None
         Trial-ID array of shape ``(ntime,)``.  ``np.nan`` outside trials.
     trial_info : dict | None
-        Dict with ``baseline`` (list[int]) and ``trial_window`` (list).
+        Mutable dictionary compatible with :class:`TrialInfo`; commonly
+        contains ``baseline`` and ``trial_window``.
     trial_starts : np.ndarray | None
         Start sample indices per trial, shape ``(n_trials,)``.
     trial_ends : np.ndarray | None
@@ -88,22 +99,22 @@ class BaseData:
         trial_ends: np.ndarray | None = None,
         vision_onsets: np.ndarray | None = None,
         trial_meta: Any = None,
-        data_mode: str | None = None,
+        data_mode: DataMode | None = None,
     ) -> None:
         self._neuro: np.ndarray | None = np.asarray(neuro) if neuro is not None else None
         self._neuro_loader: NeuroLoader | None = None
-        self.neuro_info = neuro_info
+        self.neuro_info: NeuroInfo = cast(NeuroInfo, neuro_info)
 
         self._stim_labels = stim_labels
-        self.vision_info = vision_info
+        self.vision_info: VisionInfo | None = cast(VisionInfo | None, vision_info)
         self.trial = trial
-        self.trial_info = trial_info
+        self.trial_info: TrialInfo | None = cast(TrialInfo | None, trial_info)
         self.trial_starts = trial_starts
         self.trial_ends = trial_ends
         self.vision_onsets = vision_onsets
         self.trial_meta = trial_meta
 
-        self.data_mode: str = self._infer_data_mode(self._neuro, data_mode)
+        self.data_mode: DataMode = self._infer_data_mode(self._neuro, data_mode)
         self._vision: Any = None  # legacy: VisualRepresentations | ndarray
         self._vision_data: Any = None
 
@@ -159,6 +170,21 @@ class BaseData:
         BaseData
         """
         return cls(neuro=neuro, neuro_info=neuro_info or {}, data_mode="epochs", **kwargs)
+
+    @classmethod
+    def for_patterns(
+        cls,
+        neuro: np.ndarray | None = None,
+        neuro_info: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> BaseData:
+        """Factory for row-level response patterns.
+
+        Pattern rows are valid without trial arrays.  Pass ``trial_meta`` with a
+        ``stim_index`` column when rows have explicit stimulus identities and
+        should align to vision features.
+        """
+        return cls(neuro=neuro, neuro_info=neuro_info or {}, data_mode="patterns", **kwargs)
 
     # ------------------------------------------------------------------
     # neuro property (lazy loading)
@@ -220,14 +246,17 @@ class BaseData:
             If :meth:`configure` has not been called yet.
         """
         if not self.configured:
-            raise RuntimeError("BaseData has not been configured. Call configure() first, or check .is_configured.")
+            raise RuntimeError("BaseData is incomplete for its data_mode. Check .is_configured.")
+        if self.data_mode == "patterns" and self._pattern_stim_ids() is None:
+            raise RuntimeError(
+                "Vision alignment for patterns requires explicit row stimulus IDs in trial_meta['stim_index']."
+            )
         if self._vision_data is None:
             try:
                 from vneurotk.vision.data import VisionData
             except ImportError as e:
                 raise RuntimeError(
-                    "Vision features require optional dependencies (torch, etc.). "
-                    "Install them with: uv add vneurotk[vision]"
+                    "Vision features require torch and transformers. Install them with: uv add 'vneurotk[vision]'"
                 ) from e
             self._vision_data = VisionData(self.trial_stim_ids)
         return self._vision_data
@@ -297,8 +326,18 @@ class BaseData:
 
     @property
     def configured(self) -> bool:
-        """Whether :meth:`configure` has been called."""
-        return self._stim_labels is not None and self.trial is not None
+        """Whether the state required by the active data mode is complete.
+
+        Continuous and epochs recordings require the full trial structure.
+        Patterns are already row-level responses, so a two-dimensional neuro
+        array (or declared lazy shape) is sufficient; row stimulus IDs are
+        optional and only enable vision alignment.
+        """
+        try:
+            self._validate_state()
+        except (TypeError, ValueError, RuntimeError):
+            return False
+        return True
 
     @property
     def is_configured(self) -> bool:
@@ -312,10 +351,25 @@ class BaseData:
 
     @property
     def n_trials(self) -> int:
-        """Number of trials (0 if not configured)."""
+        """Number of trials (patterns have rows rather than trials)."""
+        if self.data_mode == "patterns":
+            return 0
         if self.trial_starts is None:
             return 0
         return len(self.trial_starts)
+
+    def _pattern_stim_ids(self) -> np.ndarray | None:
+        """Return explicit row stimulus IDs, if pattern metadata provides them."""
+        if self.data_mode != "patterns" or self.trial_meta is None:
+            return None
+        columns = getattr(self.trial_meta, "columns", ())
+        if "stim_index" not in columns:
+            return None
+        stim_ids = np.asarray(self.trial_meta["stim_index"])
+        n_rows = self._neuro_shape_dim(0)
+        if stim_ids.ndim != 1 or len(stim_ids) != n_rows:
+            return None
+        return stim_ids
 
     def _stim_id_at_trial(self, i: int) -> Any:
         """Return the stimulus ID presented at trial *i*.
@@ -340,16 +394,34 @@ class BaseData:
 
     @property
     def trial_stim_ids(self) -> np.ndarray:
-        """Stimulus ID at the onset of each trial, shape ``(n_trials,)``.
+        """Stimulus IDs aligned to trial or pattern rows.
+
+        Pattern data exposes IDs only when row metadata explicitly contains a
+        ``stim_index`` column.  Row position alone never implies stimulus
+        identity.
 
         Raises
         ------
         RuntimeError
-            If :meth:`configure` has not been called yet.
+            If the active mode is incomplete, or patterns have no explicit row
+            stimulus IDs.
         """
         if not self.configured:
-            raise RuntimeError("BaseData not configured. Call configure() first.")
-        return np.array([self._stim_id_at_trial(i) for i in range(self.n_trials)])
+            raise RuntimeError("BaseData is incomplete for its data_mode.")
+        if self.data_mode == "patterns":
+            stim_ids = self._pattern_stim_ids()
+            if stim_ids is None:
+                raise RuntimeError(
+                    "Pattern rows have no explicit stimulus IDs. "
+                    "Provide trial_meta with a 'stim_index' column for vision alignment."
+                )
+            return stim_ids.copy()
+        values = [self._stim_id_at_trial(i) for i in range(self.n_trials)]
+        labels = self._stim_labels
+        if labels is not None and labels.dtype != object and self.vision_info is not None:
+            known_ids = self.vision_info.get("stim_ids", [])
+            values = [next((known for known in known_ids if known == value), value) for value in values]
+        return _coerce_scalar_array(values)
 
     @property
     def stim_labels(self) -> np.ndarray | None:
@@ -434,7 +506,7 @@ class BaseData:
         if self.configured:
             logger.warning("re-configuring already configured BaseData, overwriting trial structure")
 
-        visual_ids = np.asarray(stim_ids)
+        visual_ids = _coerce_scalar_array(stim_ids)
 
         if self.data_mode == "patterns":
             raise ValueError("configure() is not supported for data_mode='patterns'.")
@@ -452,14 +524,23 @@ class BaseData:
             if trial_window is None or vision_onsets is None:
                 raise ValueError("trial_window and vision_onsets are required for continuous data.")
             ts = build_trial_structure_continuous(
-                visual_ids, trial_window, vision_onsets, self.ntime, self.neuro_info["sfreq"]
+                visual_ids,
+                trial_window,
+                vision_onsets,
+                self.ntime,
+                self._sampling_frequency(),
+                neuro_shape=self._neuro.shape if self._neuro is not None else tuple(self.neuro_info.get("shape", ())),
             )
+        staged_db = StimulusSet(visual_ids, vision_db) if vision_db is not None else None
+        if self._vision_data is not None:
+            self._vision_data._validate_output_order(visual_ids)
+            self._vision_data.output_order = visual_ids
         self._apply_trial_structure(ts)
 
-        if vision_db is not None:
+        if staged_db is not None:
             if self.vision.db is not None:
                 logger.info("configure: replacing existing Stimulus Set with newly provided one.")
-            self.vision.attach_db(StimulusSet(self.trial_stim_ids, vision_db))
+            self.vision.attach_db(staged_db)
 
     def _apply_trial_structure(self, ts: TrialStructure) -> None:
         """Write all trial-structure fields from *ts* to self atomically."""
@@ -523,7 +604,12 @@ class BaseData:
         -------
         matplotlib.figure.Figure
         """
-        from vneurotk.viz.data import plot_data
+        try:
+            from vneurotk.viz.data import plot_data
+        except ImportError as exc:
+            if exc.name is not None and exc.name.startswith("matplotlib"):
+                raise ImportError("Plotting requires matplotlib. Install it with: uv add 'vneurotk[viz]'") from exc
+            raise
 
         tw = self.trial_info["trial_window"] if self.trial_info is not None else None
 
@@ -540,7 +626,7 @@ class BaseData:
         return plot_data(
             neuro=neuro,
             visual=stim_labels,
-            sfreq=self.neuro_info["sfreq"],
+            sfreq=self._sampling_frequency(),
             trial=trial,
             trial_window=tw,
             figsize=figsize,
@@ -555,33 +641,122 @@ class BaseData:
     # save()
     # ------------------------------------------------------------------
 
-    def save(self, path: Any) -> None:
+    def save(
+        self,
+        path: Any,
+        *,
+        compression: str | None = "gzip",
+        compression_opts: Any = 4,
+        chunk_target_bytes: int = 1024 * 1024,
+    ) -> None:
         """Persist the configured data to an HDF5 file.
 
         Parameters
         ----------
         path : VTKPath | pathlib.Path | str
             Destination file path.
+        compression : str or None
+            HDF5 filter for neural and activation arrays. Defaults to ``"gzip"``;
+            pass ``None`` to disable compression.
+        compression_opts : Any
+            Filter-specific options; defaults to gzip level 4.
+        chunk_target_bytes : int
+            Approximate maximum chunk size for large numerical arrays. Defaults
+            to 1 MiB and preserves lazy dataset loading.
 
         Raises
         ------
         RuntimeError
             If :meth:`configure` has not been called yet.
         """
-        if not self.configured:
-            raise RuntimeError("Cannot save unconfigured BaseData. Call configure() first.")
+        self._validate_state()
 
         from vneurotk.io.h5_persistence import save_recording
 
-        save_recording(self, self._resolve_path(path))
+        save_recording(
+            self,
+            self._resolve_path(path),
+            compression=compression,
+            compression_opts=compression_opts,
+            chunk_target_bytes=chunk_target_bytes,
+        )
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _sampling_frequency(self) -> float | int:
+        """Return the sampling-frequency value for downstream validation."""
+        sfreq = self.neuro_info.get("sfreq")
+        if sfreq is None:
+            raise ValueError("neuro_info['sfreq'] is required for this operation.")
+        return sfreq
+
+    def _validate_state(self) -> None:
+        """Raise when mutable state violates the active data-mode contract."""
+        raw_shape = self._neuro.shape if self._neuro is not None else self.neuro_info.get("shape")
+        if raw_shape is None:
+            raise RuntimeError("Cannot save incomplete BaseData state: neural shape is unavailable.")
+        try:
+            shape = tuple(int(dim) for dim in raw_shape)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid neural shape {raw_shape!r}.") from exc
+        if self._neuro is not None and self.neuro_info.get("shape") is not None:
+            declared = tuple(int(dim) for dim in self.neuro_info["shape"])
+            if declared != shape:
+                raise ValueError(f"neuro_info['shape'] {declared!r} contradicts actual neural data shape {shape!r}.")
+        if len(shape) == 0 or any(dim <= 0 for dim in shape):
+            raise ValueError(f"Neural data must have positive dimensions, got shape {shape!r}.")
+        ch_names = self.neuro_info.get("ch_names")
+        if ch_names is not None and len(ch_names) != shape[-1]:
+            raise ValueError(
+                f"neuro_info['ch_names'] length must match channel count {shape[-1]}, got {len(ch_names)}."
+            )
+
+        if self.data_mode == "patterns":
+            if len(shape) != 2:
+                raise ValueError(f"patterns neuro data must be 2-D, got shape {shape}.")
+            if self.trial_meta is not None and len(self.trial_meta) != shape[0]:
+                raise ValueError(
+                    f"trial_meta length must match pattern row count {shape[0]}, got {len(self.trial_meta)}."
+                )
+            return
+
+        fields = {
+            "stim_labels": self._stim_labels,
+            "trial": self.trial,
+            "trial_starts": self.trial_starts,
+            "trial_ends": self.trial_ends,
+            "vision_onsets": self.vision_onsets,
+            "vision_info": self.vision_info,
+            "trial_info": self.trial_info,
+        }
+        missing = [name for name, value in fields.items() if value is None]
+        if missing:
+            raise RuntimeError(
+                "Cannot save incomplete BaseData state; call configure() to provide missing required field(s): "
+                + ", ".join(missing)
+                + "."
+            )
+        validate_trial_structure_state(
+            data_mode=self.data_mode,
+            neuro_shape=shape,
+            stim_labels=cast(np.ndarray, self._stim_labels),
+            trial=cast(np.ndarray, self.trial),
+            trial_starts=cast(np.ndarray, self.trial_starts),
+            trial_ends=cast(np.ndarray, self.trial_ends),
+            vision_onsets=cast(np.ndarray, self.vision_onsets),
+            vision_info=cast(VisionInfo, self.vision_info),
+            trial_info=cast(TrialInfo, self.trial_info),
+            trial_meta=self.trial_meta,
+        )
+
     @staticmethod
-    def _infer_data_mode(neuro: np.ndarray | None, explicit: str | None) -> str:
+    def _infer_data_mode(neuro: np.ndarray | None, explicit: DataMode | None) -> DataMode:
         if explicit is not None:
+            if explicit not in _VALID_DATA_MODES:
+                choices = ", ".join(sorted(_VALID_DATA_MODES))
+                raise ValueError(f"Invalid data_mode {explicit!r}; expected one of: {choices}.")
             return explicit
         if neuro is not None and neuro.ndim == 3:
             return "epochs"

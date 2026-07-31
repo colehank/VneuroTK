@@ -17,6 +17,27 @@ def _norm_key(sid: Any) -> Any:
     return sid.item() if hasattr(sid, "item") else sid
 
 
+def _coerce_scalar_array(values: Any, *, copy: bool = False) -> np.ndarray:
+    """Coerce scalar values without erasing heterogeneous Python types.
+
+    Homogeneous inputs retain NumPy's compact native dtype. Sequence inputs
+    containing different scalar types use object dtype so identities such as
+    ``True`` versus ``2`` and ``1`` versus ``"1"`` survive coercion.
+    """
+    array = np.asarray(values)
+    if isinstance(values, np.ndarray):
+        return array.copy() if copy else array
+
+    object_array = np.asarray(values, dtype=object)
+    scalar_types = {type(_norm_key(value)) for value in object_array.ravel()}
+    if len(scalar_types) > 1:
+        return object_array.copy() if copy else object_array
+
+    compact_array = np.asarray(object_array.tolist())
+    result = compact_array if compact_array.dtype.kind != "O" else object_array
+    return result.copy() if copy else result
+
+
 def _unique_ordered_keys(stim_ids: Any) -> list:
     """Return unique values from *stim_ids* in first-appearance order."""
     seen: dict = {}
@@ -65,7 +86,7 @@ class StimulusSet:
         stim_ids: np.ndarray | list,
         stimuli: dict | list | np.ndarray | None = None,
     ) -> None:
-        self._vision_id = np.asarray(stim_ids)
+        self._vision_id = _coerce_scalar_array(stim_ids, copy=True)
         if self._vision_id.ndim != 1:
             raise ValueError(f"stim_ids must be 1-D, got shape {self._vision_id.shape}")
 
@@ -87,8 +108,12 @@ class StimulusSet:
 
     @property
     def unique_ids(self) -> list:
-        """Unique stimulus IDs in sorted order."""
-        return np.unique(self._vision_id).tolist()
+        """Unique stimulus IDs in sorted order when their types are comparable."""
+        unique_ids = _unique_ordered_keys(self._vision_id)
+        try:
+            return sorted(unique_ids)
+        except TypeError:
+            return unique_ids
 
     # --- item access ------------------------------------------------------
 
@@ -137,18 +162,30 @@ class StimulusSet:
         stim_ids : array-like, shape (n_onsets,)
             Stimulus ID per onset.
         stimuli : dict
-            Complete ``{stim_id: image}`` mapping; every ID in *stim_ids*
-            must have a corresponding entry.
+            Complete ``{stim_id: image}`` mapping; every unique ID in
+            *stim_ids* must have a corresponding entry. Mapping entries whose
+            keys do not occur in *stim_ids* are ignored.
 
         Returns
         -------
         StimulusSet
+
+        Raises
+        ------
+        ValueError
+            If any unique stimulus ID has no mapping entry.
         """
         ss: StimulusSet = cls.__new__(cls)
-        ss._vision_id = np.asarray(stim_ids)
+        ss._vision_id = _coerce_scalar_array(stim_ids, copy=True)
         if ss._vision_id.ndim != 1:
             raise ValueError(f"stim_ids must be 1-D, got shape {ss._vision_id.shape}")
-        ss._stimuli = {_norm_key(k): v for k, v in stimuli.items()}
+
+        normalized_stimuli = {_norm_key(k): v for k, v in stimuli.items()}
+        unique_ids = _unique_ordered_keys(ss._vision_id)
+        missing = [stim_id for stim_id in unique_ids if stim_id not in normalized_stimuli]
+        if missing:
+            raise ValueError(f"stimuli mapping is missing {len(missing)} unique stimulus ID(s): {missing}")
+        ss._stimuli = {stim_id: normalized_stimuli[stim_id] for stim_id in unique_ids}
         return ss
 
     @classmethod
@@ -174,7 +211,7 @@ class StimulusSet:
         ValueError
             If ``len(images)`` does not equal the number of unique stim IDs.
         """
-        ids = np.asarray(stim_ids)
+        ids = _coerce_scalar_array(stim_ids)
         unique_ordered = _unique_ordered_keys(ids)
         if len(unique_ordered) != len(images):
             raise ValueError(f"images length {len(images)} != {len(unique_ordered)} unique stim IDs")
@@ -197,7 +234,7 @@ class StimulusSet:
         StimulusSet
         """
         ss: StimulusSet = cls.__new__(cls)
-        ss._vision_id = np.asarray(stim_ids)
+        ss._vision_id = _coerce_scalar_array(stim_ids, copy=True)
         if ss._vision_id.ndim != 1:
             raise ValueError(f"stim_ids must be 1-D, got shape {ss._vision_id.shape}")
         ss._stimuli = lazy_dict

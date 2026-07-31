@@ -36,15 +36,15 @@ def _encode_image(img: Any) -> tuple[np.ndarray, str]:
     return np.asarray(img), "array"
 
 
-def _decode_image(data: np.ndarray, kind: str) -> Any:
+def _decode_image(data: Any, kind: str) -> Any:
     """Decode a raw HDF5 array to a numpy image array based on *kind*.
 
     Symmetric with :func:`_encode_image`.
 
     Parameters
     ----------
-    data : np.ndarray
-        Raw data as loaded from the HDF5 dataset (``ds[:]`` or ``ds[()]``).
+    data : Any
+        Raw data as loaded from the HDF5 dataset (an array, byte string, or path string).
     kind : str
         Storage kind written by ``_encode_image``: ``"path"``, ``"image_bytes"``,
         or ``"array"``.

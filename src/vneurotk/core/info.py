@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 _STYLE = (
@@ -39,9 +40,9 @@ class Info:
 
     def __init__(
         self,
-        neuro: dict[str, Any],
-        visual: dict[str, Any] | None,
-        trial: dict[str, Any] | None,
+        neuro: Mapping[str, Any],
+        visual: Mapping[str, Any] | None,
+        trial: Mapping[str, Any] | None,
         configured: bool,
         data_mode: str = "continuous",
     ) -> None:

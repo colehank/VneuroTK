@@ -13,6 +13,14 @@ import pandas as pd
 from loguru import logger
 
 from vneurotk.core.recording import BaseData
+from vneurotk.core.stimulus import _norm_key
+from vneurotk.io._h5_codec import (
+    FileIdentity,
+    decode_text,
+    file_identity,
+    read_scalar_sequence,
+    verify_open_file_identity,
+)
 from vneurotk.io._image_codec import _decode_image
 from vneurotk.io.path import BIDSPath, EphysPath, MNEPath, VTKPath
 from vneurotk.neuro.trial import _build_vision_info
@@ -43,10 +51,20 @@ class LazyH5Dict(Mapping):
         Default ``"stimuli_db"``.
     """
 
-    def __init__(self, path: Path | str, group: str = "stimuli_db") -> None:
+    def __init__(
+        self,
+        path: Path | str,
+        group: str = "stimuli_db",
+        *,
+        identity: FileIdentity | None = None,
+    ) -> None:
         self._path = Path(path)
         self._group = group
+        self._identity = file_identity(self._path) if identity is None else identity
         self._index: dict[Any, str] | None = None  # native_key → ds_key
+
+    def _verify_identity(self, f: h5py.File) -> None:
+        verify_open_file_identity(f, self._identity, self._path)
 
     # ------------------------------------------------------------------
     # Index build (reads only attrs, not image data)
@@ -57,21 +75,31 @@ class LazyH5Dict(Mapping):
             return
         idx: dict[Any, str] = {}
         with h5py.File(self._path, "r") as f:
+            self._verify_identity(f)
             grp = f[self._group]
-            for ds_key in grp:
-                key_type = str(grp[ds_key].attrs.get("key_type", "str"))
-                native: Any = ds_key
-                if key_type == "int":
-                    try:
-                        native = int(ds_key)
-                    except ValueError:
-                        pass
-                elif key_type == "float":
-                    try:
-                        native = float(ds_key)
-                    except ValueError:
-                        pass
-                idx[native] = ds_key
+            if decode_text(grp.attrs.get("encoding", "legacy")) == "ordered_entries_v1":
+                for raw_entry_name in sorted(grp, key=int):
+                    entry_name = str(raw_entry_name)
+                    entry = grp[entry_name]
+                    native = read_scalar_sequence(entry, "id")[0]
+                    if native in idx:
+                        raise ValueError(f"Duplicate stimulus ID {native!r} in {self._path}.")
+                    idx[native] = entry_name
+            else:
+                for ds_key in grp:
+                    key_type = decode_text(grp[ds_key].attrs.get("key_type", "str"))
+                    native: Any = ds_key
+                    if key_type == "int":
+                        try:
+                            native = int(ds_key)
+                        except ValueError:
+                            pass
+                    elif key_type == "float":
+                        try:
+                            native = float(ds_key)
+                        except ValueError:
+                            pass
+                    idx[native] = ds_key
         self._index = idx
 
     # ------------------------------------------------------------------
@@ -80,27 +108,40 @@ class LazyH5Dict(Mapping):
 
     def __getitem__(self, key: Any) -> np.ndarray:
         self._build_index()
-        native = key.item() if hasattr(key, "item") else key
+        native = _norm_key(key)
         ds_key = self._index[native]  # ty: ignore[not-subscriptable]
         with h5py.File(self._path, "r") as f:
-            return self._decode_item(f[self._group][ds_key])
+            self._verify_identity(f)
+            item = f[self._group][ds_key]
+            ds = item["image"] if isinstance(item, h5py.Group) else item
+            return self._decode_item(ds, base_path=self._path.parent)
 
     @staticmethod
-    def _decode_item(ds: Any) -> np.ndarray:
+    def _decode_item(ds: Any, base_path: Path | None = None) -> np.ndarray:
         """Decode a stored dataset to a numpy array based on its ``kind`` attribute.
 
         Parameters
         ----------
         ds : h5py.Dataset
             An open dataset from the stimuli_db group.
+        base_path : Path or None
+            Directory used to resolve relative legacy ``kind="path"`` values.
 
         Returns
         -------
         np.ndarray
         """
-        kind = str(ds.attrs.get("kind", "array"))
+        kind = decode_text(ds.attrs.get("kind", "array"))
         data = ds[()] if kind in ("path", "image_bytes") else ds[:]
+        if kind == "path" and base_path is not None:
+            path = Path(data.decode("utf-8") if isinstance(data, bytes) else str(data))
+            if not path.is_absolute():
+                data = str(base_path / path)
         return _decode_image(data, kind)
+
+    def __contains__(self, key: object) -> bool:
+        self._build_index()
+        return _norm_key(key) in self._index  # ty: ignore[unsupported-operator]
 
     def __len__(self) -> int:
         self._build_index()
@@ -445,7 +486,7 @@ def _load_ephys_mean_fr(path: EphysPath, level: str) -> BaseData:
     visual_ids = record_df["stim_index"].values
     unique_ids = np.unique(visual_ids)
 
-    bd = BaseData(
+    bd = BaseData.for_patterns(
         neuro=neuro,
         neuro_info={
             "sfreq": None,
@@ -456,7 +497,6 @@ def _load_ephys_mean_fr(path: EphysPath, level: str) -> BaseData:
         },
         vision_info=_build_vision_info(unique_ids),
         trial_meta=record_df,
-        data_mode="patterns",
     )
 
     logger.info("Loaded ephys {} (trial-level): shape {}", path.dtype, neuro.shape)
@@ -478,7 +518,7 @@ def _load_ephys_stim_fr(path: EphysPath) -> BaseData:
 
     trial_meta = pd.DataFrame({"stim_index": allstim}) if allstim is not None else None
 
-    bd = BaseData(
+    bd = BaseData.for_patterns(
         neuro=neuro,
         neuro_info={
             "sfreq": None,
@@ -489,7 +529,6 @@ def _load_ephys_stim_fr(path: EphysPath) -> BaseData:
         },
         vision_info=_build_stim_fr_vision_info(neuro.shape[0], allstim, teststim),
         trial_meta=trial_meta,
-        data_mode="patterns",
     )
 
     logger.info("Loaded ephys ChStimFr (stimulus-level): shape {}", neuro.shape)

@@ -129,7 +129,11 @@ class NeuroData:
             )
             return self._data
 
-        return np.stack([self._data[s:e] for s, e in zip(self._trial_starts, self._trial_ends, strict=True)])  # ty: ignore[not-iterable, invalid-argument-type]
+        trials = [self._data[s:e] for s, e in zip(self._trial_starts, self._trial_ends, strict=True)]  # ty: ignore[not-iterable, invalid-argument-type]
+        lengths = [trial.shape[0] for trial in trials]
+        if len(set(lengths)) > 1:
+            raise ValueError(f"Cannot create epochs from trials with unequal lengths; got trial lengths {lengths}.")
+        return np.stack(trials)
 
     @property
     def continuous(self) -> np.ndarray:

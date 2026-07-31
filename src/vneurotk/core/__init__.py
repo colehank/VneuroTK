@@ -1,13 +1,10 @@
-"""vneurotk.core — Joint Data Object and shared primitives (internal module).
-
-Public API is re-exported from the top-level ``vneurotk`` package.
-Direct imports (``from vneurotk.core import BaseData``) are valid but not canonical.
-"""
+"""Core recording containers and shared primitives."""
 
 from __future__ import annotations
 
 from vneurotk.core.info import Info
-from vneurotk.core.recording import BaseData
+from vneurotk.core.metadata import NeuroInfo, TrialInfo, VisionInfo
+from vneurotk.core.recording import BaseData, DataMode
 from vneurotk.core.stimulus import StimulusSet
 
-__all__ = ["BaseData", "StimulusSet", "Info"]
+__all__ = ["BaseData", "DataMode", "Info", "NeuroInfo", "StimulusSet", "TrialInfo", "VisionInfo"]
