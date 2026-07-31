@@ -29,7 +29,7 @@ Install the extra that matches the features or model backend you need:
 | `vision` | `torch`, `transformers` | Shared vision-model and feature-extraction support |
 | `viz` | `matplotlib` | Plotting and visualization |
 | `timm` | `torch`, `transformers`, `timm` | timm model backend, including the shared vision stack |
-| `thingsvision` | `torch`, `transformers`, `thingsvision` (Python 3.11–3.12) | thingsvision backend, including the shared vision stack |
+| `thingsvision` | `torch`, `transformers`, `numba`, `thingsvision` (Python 3.11–3.12) | thingsvision backend, including the shared vision stack |
 | `mne` | `mne`, `mne-bids` | M/EEG analysis and BIDS support |
 | `notebook` | `ipykernel`, `ipywidgets` | Jupyter notebooks |
 | `cebra` | `cebra`, `trialcebra` | CEBRA integration |

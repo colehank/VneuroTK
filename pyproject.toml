@@ -41,6 +41,7 @@ timm = ["torch", "transformers", "timm"]
 thingsvision = [
     "torch; python_version < '3.13'",
     "transformers; python_version < '3.13'",
+    "numba>=0.59; python_version < '3.13'",
     "thingsvision>=1.4.4; python_version < '3.13'",
 ]
 cebra = ["cebra>=0.6.0", "trialcebra>=0.0.5"]

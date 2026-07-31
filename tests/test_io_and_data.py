@@ -40,7 +40,7 @@ class TestDependencyContract:
         assert self._names(extras["vision"]) == {"torch", "transformers"}
         assert self._names(extras["viz"]) == {"matplotlib"}
         assert self._names(extras["timm"]) == {"torch", "transformers", "timm"}
-        assert self._names(extras["thingsvision"]) == {"torch", "transformers", "thingsvision"}
+        assert self._names(extras["thingsvision"]) == {"torch", "transformers", "numba", "thingsvision"}
 
     def test_thingsvision_extra_is_limited_to_python_before_313(self):
         requirements = self._project()["optional-dependencies"]["thingsvision"]

@@ -17,8 +17,6 @@ jobs:
     name: Downloader contract (offline)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-offline-sample-cache
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -33,6 +31,8 @@ jobs:
         run: uv sync --frozen --python=3.13 --group test
 
       - name: Run offline downloader contract tests
+        env:
+          VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-offline-sample-cache
         run: uv run --frozen --no-sync --python=3.13 python -m pytest tests/test_datasets_sample.py
 
   nod-smoke:
@@ -40,7 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-nod-sample-cache
       VNEUROTK_TEST_SAMPLE_DATA: "1"
       VNEUROTK_TEST_INTEGRATION: "1"
       VNEUROTK_RUN_NETWORK: "1"
@@ -59,6 +58,8 @@ jobs:
         run: uv sync --frozen --python=3.13 --group test --extra mne
 
       - name: Download, integrity-check, and smoke-test a fresh NOD-MEG sample
+        env:
+          VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-nod-sample-cache
         run: >-
           uv run --frozen --no-sync --python=3.13 python -m pytest
           -o addopts="--strict-config --strict-markers -ra"
@@ -71,7 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-monkey-sample-cache
       VNEUROTK_TEST_SAMPLE_DATA: "1"
       VNEUROTK_TEST_INTEGRATION: "1"
       VNEUROTK_RUN_NETWORK: "1"
@@ -90,6 +90,8 @@ jobs:
         run: uv sync --frozen --python=3.13 --group test
 
       - name: Download, integrity-check, and smoke-test a fresh MonkeyVision sample
+        env:
+          VNEUROTK_SAMPLE_CACHE: ${{ runner.temp }}/vneurotk-monkey-sample-cache
         run: >-
           uv run --frozen --no-sync --python=3.13 python -m pytest
           -o addopts="--strict-config --strict-markers -ra"
