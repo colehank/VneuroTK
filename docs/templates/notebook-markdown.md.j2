@@ -6,6 +6,10 @@
 ````
 {% endblock stream %}
 
+{% block data_html scoped %}
+{{ output.data['text/html'] }}
+{% endblock data_html %}
+
 {% block data_text scoped %}
 ````text
 {{ output.data['text/plain'] | strip_ansi }}

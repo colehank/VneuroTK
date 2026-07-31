@@ -4269,17 +4269,21 @@ viz = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "bleach", extra = ["css"] },
     { name = "coverage" },
     { name = "mkdocstrings-python" },
     { name = "nbconvert" },
+    { name = "nbformat" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
     { name = "zensical" },
 ]
 docs = [
+    { name = "bleach", extra = ["css"] },
     { name = "mkdocstrings-python" },
     { name = "nbconvert" },
+    { name = "nbformat" },
     { name = "zensical" },
 ]
 lint = [
@@ -4331,17 +4335,21 @@ provides-extras = ["cebra", "mne", "notebook", "thingsvision", "timm", "vision",
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "bleach", extras = ["css"] },
     { name = "coverage" },
     { name = "mkdocstrings-python" },
     { name = "nbconvert" },
+    { name = "nbformat" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
     { name = "zensical" },
 ]
 docs = [
+    { name = "bleach", extras = ["css"] },
     { name = "mkdocstrings-python" },
     { name = "nbconvert" },
+    { name = "nbformat" },
     { name = "zensical" },
 ]
 lint = [{ name = "ruff" }]

@@ -68,6 +68,8 @@ docs = [
     "zensical",
     "mkdocstrings-python",
     "nbconvert",
+    "nbformat",
+    "bleach[css]",
 ]
 packaging = [
     "check-wheel-contents",

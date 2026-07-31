@@ -7,3 +7,151 @@
 [data-md-color-scheme="slate"] .md-header__button.md-logo svg {
   filter: invert(1);
 }
+
+/* Notebook outputs are injected after Zensical's strict Markdown build. */
+.notebook-output {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0.75rem 0 1.25rem;
+  padding: 0.8rem 0.9rem;
+  overflow-x: auto;
+  color: var(--md-default-fg-color);
+  background: var(--md-code-bg-color);
+  border: 0.05rem solid var(--md-typeset-table-color);
+  border-radius: 0.4rem;
+  box-shadow: 0 0.1rem 0.3rem rgb(0 0 0 / 5%);
+  scrollbar-color: var(--md-default-fg-color--lighter) transparent;
+}
+
+.notebook-output:focus-visible {
+  outline: 0.12rem solid var(--md-accent-fg-color);
+  outline-offset: 0.12rem;
+}
+
+.notebook-output > :first-child {
+  margin-top: 0;
+}
+
+.notebook-output > :last-child {
+  margin-bottom: 0;
+}
+
+.notebook-output pre {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  color: inherit;
+  background: transparent;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.notebook-output table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  background: transparent;
+}
+
+.notebook-output th,
+.notebook-output td {
+  padding: 0.4rem 0.65rem;
+  border: 0.05rem solid var(--md-typeset-table-color);
+  white-space: nowrap;
+}
+
+.notebook-output thead th {
+  color: var(--md-default-fg-color);
+  background: color-mix(in srgb, var(--md-code-bg-color), var(--md-default-fg-color) 7%);
+  font-weight: 600;
+}
+
+.notebook-output tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--md-code-bg-color), var(--md-default-fg-color) 3%);
+}
+
+.notebook-output .vtk-info {
+  max-width: 34rem;
+  font-family: var(--md-text-font-family);
+  font-size: 0.75rem;
+}
+
+.notebook-output .vtk-info details + details {
+  margin-top: 0.45rem;
+}
+
+.notebook-output .vtk-info summary {
+  padding: 0.35rem 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.notebook-output .vtk-info summary:focus-visible {
+  outline: 0.1rem solid var(--md-accent-fg-color);
+  outline-offset: 0.1rem;
+}
+
+.notebook-output .vtk-info th {
+  width: 50%;
+  text-align: left;
+  opacity: 0.78;
+}
+
+.notebook-output .vtk-info td {
+  width: 50%;
+  text-align: right;
+}
+
+.notebook-output .vtk-na {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.notebook-ansi-bold {
+  font-weight: 700;
+}
+
+.notebook-ansi-red { color: #b42318; }
+.notebook-ansi-green { color: #18864b; }
+.notebook-ansi-yellow { color: #8a6800; }
+.notebook-ansi-blue { color: #2457c5; }
+.notebook-ansi-magenta { color: #9d3ca6; }
+.notebook-ansi-cyan { color: #007f82; }
+.notebook-ansi-gray { color: #68707c; }
+.notebook-ansi-bright-red { color: #d92d20; }
+.notebook-ansi-bright-green { color: #12a150; }
+.notebook-ansi-bright-yellow { color: #a77800; }
+.notebook-ansi-bright-blue { color: #326ce5; }
+.notebook-ansi-bright-white { color: #454c59; }
+
+[data-md-color-scheme="slate"] .notebook-ansi-red { color: #ff8a80; }
+[data-md-color-scheme="slate"] .notebook-ansi-green { color: #72d69c; }
+[data-md-color-scheme="slate"] .notebook-ansi-yellow { color: #e5c76b; }
+[data-md-color-scheme="slate"] .notebook-ansi-blue { color: #86a8ff; }
+[data-md-color-scheme="slate"] .notebook-ansi-magenta { color: #dda0e6; }
+[data-md-color-scheme="slate"] .notebook-ansi-cyan { color: #72d5d7; }
+[data-md-color-scheme="slate"] .notebook-ansi-gray { color: #a8b0bd; }
+[data-md-color-scheme="slate"] .notebook-ansi-bright-red { color: #ff9a91; }
+[data-md-color-scheme="slate"] .notebook-ansi-bright-green { color: #83e3aa; }
+[data-md-color-scheme="slate"] .notebook-ansi-bright-yellow { color: #f3d66f; }
+[data-md-color-scheme="slate"] .notebook-ansi-bright-blue { color: #9bb6ff; }
+[data-md-color-scheme="slate"] .notebook-ansi-bright-white { color: #f2f4f8; }
+
+@media screen and (max-width: 44.984375em) {
+  .notebook-output {
+    margin-right: -0.4rem;
+    margin-left: -0.4rem;
+    padding: 0.65rem;
+    border-radius: 0.25rem;
+  }
+
+  .notebook-output pre {
+    font-size: 0.65rem;
+  }
+}
