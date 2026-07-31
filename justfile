@@ -110,13 +110,14 @@ coverage:
     uv run --python=3.13 --group test python -m coverage html
 
 # Serve docs locally with live reload
+# Restart after changing a notebook so it is converted again.
 docs-serve:
     -lsof -ti :8000 | xargs kill
-    uv run --group docs zensical serve --dev-addr 0.0.0.0:8000
+    uv run --frozen --python=3.13 --group docs python scripts/docs.py serve --dev-addr 0.0.0.0:8000
 
-# Build docs (strict mode, fails on warnings)
+# Convert notebooks, build docs strictly, and validate rendered routes
 docs-build:
-    uv run --group docs zensical build --clean
+    uv run --frozen --python=3.13 --group docs python scripts/docs.py build
 
 # Validate repository policy metadata
 metadata-check:

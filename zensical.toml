@@ -29,10 +29,10 @@ nav = [
   ]},
   { "Examples" = [
     { "NOD-MEG neurovision workflow" = "example/nod-neurovision.md" },
-    { "Data notebook" = "example_ipynb/data.ipynb" },
-    { "Path notebook" = "example_ipynb/path.ipynb" },
-    { "Vision notebook" = "example_ipynb/vision.ipynb" },
-    { "Neurovision notebook" = "example_ipynb/neurovision.ipynb" },
+    { "Data notebook" = "example_ipynb/data.md" },
+    { "Path notebook" = "example_ipynb/path.md" },
+    { "Vision notebook" = "example_ipynb/vision.md" },
+    { "Neurovision notebook" = "example_ipynb/neurovision.md" },
   ]},
   { "API Reference" = [
     { "Overview" = "api.md" },
