@@ -21,7 +21,6 @@ license = {text = "MIT"}
 requires-python = ">= 3.11"
 dependencies = [
   "h5py",
-  "httpx",
   "loguru",
   "numpy",
   "pandas",
@@ -30,15 +29,20 @@ dependencies = [
   "rich",
   "scipy",
   "tqdm",
-  "transformers",
-  "typer",
+  "typing-extensions",
 ]
 
 [project.optional-dependencies]
+vision = ["torch", "transformers"]
+viz = ["matplotlib"]
 mne = ["mne", "mne-bids"]
 notebook = ["ipykernel", "ipywidgets"]
-timm = ["timm"]
-thingsvision = ["thingsvision>=1.4.4"]
+timm = ["torch", "transformers", "timm"]
+thingsvision = [
+    "torch; python_version < '3.13'",
+    "transformers; python_version < '3.13'",
+    "thingsvision>=1.4.4; python_version < '3.13'",
+]
 cebra = ["cebra>=0.6.0", "trialcebra>=0.0.5"]
 
 [dependency-groups]
@@ -64,9 +68,55 @@ docs = [
     "mkdocstrings-python",
     "nbconvert",
 ]
+packaging = [
+    "check-wheel-contents",
+    "PyYAML",
+    "twine",
+]
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build]
+artifacts = [
+    "/src/vneurotk/py.typed",
+]
+include = [
+    "/CITATION.cff",
+    "/LICENSE",
+    "/README.md",
+    "/src/vneurotk/**/*.py",
+]
+exclude = [
+    "/.github",
+    "/build",
+    "/dist",
+    "/docs",
+    "/notebooks",
+    "/site",
+    "/tests",
+    "**/__pycache__",
+    "**/*.db",
+    "**/*.ipynb",
+    "**/*.py[co]",
+    "**/*.sqlite*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vneurotk"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"CITATION.cff" = "share/doc/vneurotk/CITATION.cff"
+"README.md" = "share/doc/vneurotk/README.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/CITATION.cff",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+    "/src/vneurotk/**/*.py",
+]
 
 [project.urls]
 bugs = "https://github.com/colehank/vneurotk/issues"
@@ -74,13 +124,10 @@ changelog = "https://github.com/colehank/vneurotk/releases"
 documentation = "https://colehank.github.io/vneurotk/"
 homepage = "https://github.com/colehank/vneurotk"
 
-[project.scripts]
-vneurotk = "vneurotk.cli:app"
-
 [tool.ty]
 # All rules are enabled as "error" by default; no need to specify unless overriding.
-# unresolved-import: optional extras (torch, mne, scipy, matplotlib, timm) are not
-# installed in the typecheck environment, so downgrade to warn instead of error.
+# unresolved-import: optional extras (torch, transformers, mne, matplotlib, timm)
+# are not installed in the typecheck environment, so downgrade to warn instead of error.
 
 [tool.ty.rules]
 unresolved-import = "warn"
@@ -101,10 +148,31 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E402"]
 
+[tool.pytest.ini_options]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "-ra",
+    "-m",
+    "not vision and not viz and not backend_transformers and not backend_timm and not backend_thingsvision and not hdf5_compat and not sample_data and not integration and not network and not slow",
+]
+markers = [
+    "vision: tests for the optional vision feature stack",
+    "viz: tests for the optional visualization feature stack",
+    "backend_transformers: tests for the transformers model backend",
+    "backend_timm: tests for the timm model backend",
+    "backend_thingsvision: tests for the thingsvision model backend",
+    "hdf5_compat: HDF5 compatibility and round-trip tests",
+    "sample_data: tests against the published real sample archives",
+    "integration: tests requiring external data or full third-party integrations",
+    "network: tests that access network resources",
+    "slow: tests with significant runtime or memory requirements",
+]
+
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["src/", "tests/"]
+source = ["src/vneurotk"]
 
 [tool.coverage.report]
 show_missing = true

@@ -22,6 +22,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -30,14 +31,18 @@ jobs:
       - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
       - name: Ruff format check
-        run: uv run --group lint ruff format --check .
+        run: uv run --frozen --group lint ruff format --check .
 
       - name: Ruff lint
-        run: uv run --group lint ruff check .
+        run: uv run --frozen --group lint ruff check .
+
+      - name: Validate citation and repository metadata
+        run: uvx --from rust-just just metadata-check
 
   type-check:
     name: Type check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -46,15 +51,16 @@ jobs:
       - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
       - name: Type check with ty
-        run: uv run --group typecheck ty check .
+        run: uv run --frozen --group typecheck ty check .
 
-  test:
-    name: Test (Python ${{ matrix.python-version }})
+  core-tests:
+    name: Core tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -62,20 +68,78 @@ jobs:
 
       - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
-      - name: Run tests with coverage
-        run: uv run --python=${{ matrix.python-version }} --group test python -m coverage run -m pytest
+      - name: Install locked core test environment
+        run: uv sync --frozen --python=${{ matrix.python-version }} --group test
 
-      - name: Upload coverage data
+      - name: Run core tests
+        run: uv run --frozen --no-sync --python=${{ matrix.python-version }} python -m pytest
+
+  hdf5-compat:
+    name: HDF5 compatibility (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VNEUROTK_TEST_HDF5_COMPAT: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+
+      - name: Install locked HDF5 test environment
+        run: uv sync --frozen --python=3.13 --group test
+
+      - name: Run HDF5 compatibility tests
+        run: >-
+          uv run --frozen --no-sync --python=3.13 python -m pytest
+          -o addopts="--strict-config --strict-markers -ra"
+          -m "hdf5_compat and not integration and not network and not slow"
+
+  vision-tests:
+    name: Vision tests (offline, Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      VNEUROTK_TEST_VISION: "1"
+      VNEUROTK_TEST_BACKEND_TRANSFORMERS: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+
+      - name: Install locked vision environment
+        run: uv sync --frozen --python=3.13 --group test --extra vision
+
+      - name: Run offline vision and Transformers mock tests with coverage
+        run: |
+          uv run --frozen --no-sync --python=3.13 python -m coverage run -m pytest \
+            -m "(vision or backend_transformers) and not integration and not network and not slow"
+          uv run --frozen --no-sync --python=3.13 python -m coverage combine
+          uv run --frozen --no-sync --python=3.13 python -m coverage json -o coverage.json
+          echo '## Coverage Report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen --no-sync --python=3.13 python -m coverage report | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: coverage-${{ matrix.python-version }}
-          path: .coverage.*
-          include-hidden-files: true
+          name: coverage-3.13
+          path: coverage.json
+          if-no-files-found: error
 
-  coverage:
-    name: Coverage
-    needs: test
+  viz-tests:
+    name: Visualization tests (headless, Python 3.13)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+      VNEUROTK_TEST_VIZ: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -83,27 +147,148 @@ jobs:
 
       - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
-      - name: Download coverage data
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - name: Install locked visualization environment
+        run: uv sync --frozen --python=3.13 --group test --extra viz
+
+      - name: Run headless visualization tests
+        run: uv run --frozen --no-sync --python=3.13 python -m pytest -m "viz and not integration and not network and not slow"
+
+  timm-smoke:
+    name: timm CPU smoke (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CUDA_VISIBLE_DEVICES: ""
+      VNEUROTK_TEST_VISION: "1"
+      VNEUROTK_TEST_BACKEND_TIMM: "1"
+      VNEUROTK_TEST_INTEGRATION: "1"
+      VNEUROTK_TEST_SLOW: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          pattern: coverage-*
-          merge-multiple: true
+          persist-credentials: false
 
-      - name: Combine coverage
-        run: uv run --group test python -m coverage combine
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
-      - name: Coverage report
+      - name: Install locked timm environment
+        run: uv sync --frozen --python=3.13 --group test --extra timm
+
+      - name: Run timm CPU smoke test
+        run: >-
+          uv run --frozen --no-sync --python=3.13 python -m pytest
+          tests/test_vision.py::TestTimmSmokeTest::test_resnet18_end_to_end
+          -m "backend_timm and integration and slow and not network"
+
+  thingsvision-import:
+    name: ThingsVision clean install/import (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Clean-install ThingsVision extra
+        shell: bash
         run: |
-          echo '## Coverage Report' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          uv run --group test python -m coverage report | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          wheel="$(realpath dist/*.whl)"
+          env_dir="$(mktemp -d)"
+          trap 'rm -rf "$env_dir"' EXIT
+          uv venv --python=3.12 "$env_dir"
+          uv pip install --torch-backend=cpu --python "$env_dir/bin/python" "${wheel}[thingsvision]"
+          uv pip check --python "$env_dir/bin/python"
+          "$env_dir/bin/python" -c "import thingsvision, torch, transformers; from vneurotk.vision.model.backend.thingsvision_backend import ThingsVisionBackend; ThingsVisionBackend(device='cpu')"
+
+  vision-import:
+    name: Vision import smoke (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+
+      - name: Install locked vision environment
+        run: uv sync --frozen --python=${{ matrix.python-version }} --group test --extra vision
+
+      - name: Import vision stack
+        run: >-
+          uv run --frozen --no-sync --python=${{ matrix.python-version }} python -c
+          "import torch, transformers; import vneurotk.vision; from vneurotk.vision.model.backend.transformers_backend import TransformersBackend; TransformersBackend(device='cpu')"
+
+  build:
+    name: Build and clean-install distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+
+      - name: Build and validate artifacts
+        run: uvx --from rust-just just build-check
+
+      - name: Clean-install wheel extras outside checkout
+        shell: bash
+        run: |
+          wheel="$(realpath dist/*.whl)"
+          smoke_root="$(mktemp -d)"
+          trap 'rm -rf "$smoke_root"' EXIT
+          cd "$smoke_root"
+          for lane in core vision viz timm; do
+            env_dir="$smoke_root/$lane"
+            uv venv --python=3.13 "$env_dir"
+            case "$lane" in
+              core) requirement="$wheel" ;;
+              *) requirement="${wheel}[$lane]" ;;
+            esac
+            uv pip install --torch-backend=cpu --python "$env_dir/bin/python" "$requirement"
+            uv pip check --python "$env_dir/bin/python"
+            case "$lane" in
+              core)
+                "$env_dir/bin/python" -c "import vneurotk; from vneurotk import core, io"
+                ;;
+              vision)
+                "$env_dir/bin/python" -c "import torch, transformers; import vneurotk.vision; from vneurotk.vision.model.backend.transformers_backend import TransformersBackend; TransformersBackend(device='cpu')"
+                ;;
+              viz)
+                MPLBACKEND=Agg "$env_dir/bin/python" -c "import matplotlib; import vneurotk.viz"
+                ;;
+              timm)
+                "$env_dir/bin/python" -c "import timm, torch, transformers; from vneurotk.vision.model.backend.timm_backend import TimmBackend; TimmBackend(device='cpu')"
+                ;;
+            esac
+          done
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
 
   all-checks-pass:
     name: All checks pass
     if: always()
-    needs: [lint, type-check, test, coverage]
+    needs: [lint, type-check, core-tests, hdf5-compat, vision-tests, viz-tests, timm-smoke, thingsvision-import, vision-import, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check job results
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2

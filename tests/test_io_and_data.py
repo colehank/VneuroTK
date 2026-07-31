@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
+import re
 import tempfile
+import tomllib
 from pathlib import Path
+from typing import Literal
 
 import h5py
 import numpy as np
@@ -12,6 +16,43 @@ import pytest
 import vneurotk as vnt
 from vneurotk.core import BaseData
 from vneurotk.io import BIDSPath, EphysPath, MNEPath, VTKPath
+
+
+class TestDependencyContract:
+    """Packaging metadata keeps heavyweight feature stacks optional."""
+
+    @staticmethod
+    def _project() -> dict:
+        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        return tomllib.loads(pyproject.read_text())["project"]
+
+    @staticmethod
+    def _names(requirements: list[str]) -> set[str]:
+        return {re.split(r"[<>=!~;\[]", requirement, maxsplit=1)[0].strip() for requirement in requirements}
+
+    def test_core_excludes_optional_stacks_and_unused_dependencies(self):
+        names = self._names(self._project()["dependencies"])
+        assert {"torch", "transformers", "matplotlib", "httpx", "typer"}.isdisjoint(names)
+        assert "typing-extensions" in names
+
+    def test_feature_extras_install_expected_dependencies(self):
+        extras = self._project()["optional-dependencies"]
+        assert self._names(extras["vision"]) == {"torch", "transformers"}
+        assert self._names(extras["viz"]) == {"matplotlib"}
+        assert self._names(extras["timm"]) == {"torch", "transformers", "timm"}
+        assert self._names(extras["thingsvision"]) == {"torch", "transformers", "thingsvision"}
+
+    def test_thingsvision_extra_is_limited_to_python_before_313(self):
+        requirements = self._project()["optional-dependencies"]["thingsvision"]
+        assert requirements
+        assert all("python_version < '3.13'" in requirement for requirement in requirements)
+
+    def test_existing_unrelated_extras_remain_available(self):
+        extras = self._project()["optional-dependencies"]
+        assert {"mne", "notebook", "cebra"} <= extras.keys()
+
+    def test_template_cli_entry_point_is_removed(self):
+        assert "scripts" not in self._project()
 
 
 class TestVTKPath:
@@ -468,6 +509,7 @@ class TestBaseDataLoad:
             vision_onsets=np.array([50, 50, 50]),
             vision_info={"n_stim": 1, "stim_ids": [0]},
             trial_info={"baseline": [-50, 0], "trial_window": [-50, 50]},
+            data_mode="epochs",
         )
         bd._neuro_loader = lambda: neuro
         return bd, neuro
@@ -582,7 +624,7 @@ class TestBaseDataLoad:
         }
         data = BaseData(neuro=neuro, neuro_info=neuro_info)
         data.configure(
-            trial_window=[-0.2, 0.8],
+            trial_window=[-0.1, 0.2],
             vision_onsets=np.array([50, 200, 350]),
             stim_ids=np.array([1, 2, 1]),
         )
@@ -608,6 +650,8 @@ _HAS_DB = _SESSION_DIR.exists()
 skip_no_db = pytest.mark.skipif(not _HAS_DB, reason="Real DB not available")
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 @skip_no_db
 class TestLoadEphysRaster:
     """Test raster loading with real DB files."""
@@ -690,6 +734,8 @@ class TestLoadEphysRaster:
         assert cont.shape == (n_trials * n_timebins, n_chan)
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 @skip_no_db
 class TestLoadEphysMeanFr:
     """Test MeanFr / ChMeanFr loading."""
@@ -731,6 +777,8 @@ class TestLoadEphysMeanFr:
             _ = bd.neuro.continuous
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 @skip_no_db
 class TestLoadEphysStimFr:
     """Test ChStimFr loading."""
@@ -762,6 +810,8 @@ class TestLoadEphysStimFr:
         assert list(bd.trial_meta["stim_index"]) == bd.vision_info["stim_ids"]  # ty: ignore[not-subscriptable]
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 @skip_no_db
 class TestEphysSaveLoadRoundtrip:
     """Test save/load roundtrip for ephys-loaded BaseData."""
@@ -821,6 +871,8 @@ class TestEphysSaveLoadRoundtrip:
             assert set(loaded.trial_meta.columns) == set(bd.trial_meta.columns)
             assert len(loaded.trial_meta) == len(bd.trial_meta)
 
+
+class TestEphysLocalSaveLoad:
     def test_save_dense_for_small_data(self):
         """Non-sparse 2D data still uses dense format."""
         neuro = np.random.randn(1000, 10)
@@ -920,25 +972,27 @@ class TestSavePerfFixes:
             with h5py.File(fpath, "r") as f:
                 assert str(f.attrs["neuro_format"]) == "dense"
 
-    def test_sparsity_check_is_fast_for_large_array(self):
-        """Sampling-based sparsity estimate completes quickly on large arrays."""
-        import time
+    def test_sparsity_check_caps_sample_size(self, monkeypatch):
+        """_is_sparse samples at most 100k elements without a huge allocation."""
+        from vneurotk.io import h5_persistence
 
-        # ~150 M floats — a full scan would dominate the save
-        neuro = np.zeros((50, 10_000, 300), dtype=np.float32)
-        neuro[0, 0, 0] = 1.0
-        flat = neuro.ravel()
-        n_sample = min(100_000, flat.size)
-        idx = np.random.default_rng(seed=0).integers(0, flat.size, size=n_sample)
-        t0 = time.perf_counter()
-        _ = bool((flat[idx] == 0).mean() > 0.5)
-        elapsed = time.perf_counter() - t0
-        assert elapsed < 1.0, f"Sampling sparsity check took {elapsed:.3f}s (> 1s)"
+        arr = np.zeros((101, 1001), dtype=np.uint8)
+
+        class RecordingRng:
+            def integers(self, low, high, *, size):
+                assert low == 0
+                assert high == arr.size
+                assert size == 100_000
+                return np.arange(size) % high
+
+        monkeypatch.setattr(h5_persistence.np.random, "default_rng", lambda *, seed: RecordingRng())
+
+        assert h5_persistence._is_sparse(arr) is True
 
     # ── Fix 2: VR arrays saved without compression ───────────────────────────
 
-    def test_vr_array_saved_without_compression(self):
-        """VisualRepresentation arrays are stored with no HDF5 filter."""
+    def test_vr_array_saved_with_default_compression(self):
+        """VisualRepresentation arrays use the default chunked gzip policy."""
         from vneurotk.vision.representation.visual_representations import (
             VisualRepresentation,
             VisualRepresentations,
@@ -962,8 +1016,8 @@ class TestSavePerfFixes:
             data.save(fpath)
             with h5py.File(fpath, "r") as f:
                 ds = f["vision_store"]["0"]["array"]
-                # No compression filter applied
-                assert ds.compression is None
+                assert ds.compression == "gzip"
+                assert ds.chunks is not None
 
     # ── Fix 3: path-type images stored as image_bytes ────────────────────────
 
@@ -991,7 +1045,7 @@ class TestSavePerfFixes:
             data.save(fpath)
 
             with h5py.File(fpath, "r") as f:
-                ds = f["stimuli_db"]["1"]
+                ds = f["stimuli_db"]["0"]["image"]
                 assert str(ds.attrs["kind"]) == "image_bytes"
                 # Stored as raw uint8 bytes, NOT a (H, W, C) array
                 assert ds[:].ndim == 1
@@ -1024,6 +1078,25 @@ class TestSavePerfFixes:
             assert arr.shape == (h, w, 3)
             assert arr.dtype == np.uint8
             assert np.array_equal(arr, original)
+
+    def test_lazy_h5dict_membership_uses_index_without_decoding(self, tmp_path, monkeypatch):
+        """Membership checks inspect only the key index."""
+        from vneurotk.io import LazyH5Dict
+
+        h5_path = tmp_path / "db.h5"
+        with h5py.File(h5_path, "w") as f:
+            grp = f.create_group("stimuli_db")
+            grp.create_dataset("42", data=np.zeros((2, 2, 3), dtype=np.uint8))
+            grp["42"].attrs["key_type"] = "int"
+
+        lazy = LazyH5Dict(h5_path)
+
+        def fail_decode(*args, **kwargs):
+            raise AssertionError("membership must not decode image data")
+
+        monkeypatch.setattr(LazyH5Dict, "_decode_item", staticmethod(fail_decode))
+        assert np.int64(42) in lazy
+        assert 7 not in lazy
 
     def test_save_load_roundtrip_with_path_images(self):
         """Full save → load roundtrip: path-based images are recoverable via LazyH5Dict."""
@@ -1160,6 +1233,8 @@ class TestSingleImageSource:
         )
         return bd
 
+    @pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch is required")
+    @pytest.mark.vision
     def test_extract_from_uses_vision_db_fallback(self):
         """vision.extract_from(model, vision_db=images) 将图像传递并提取特征。"""
         import importlib
@@ -1194,6 +1269,8 @@ class TestSingleImageSource:
         bd.vision.extract_from(model, vision_db=images)
         assert bd.has_vision
 
+    @pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch is required")
+    @pytest.mark.vision
     def test_save_load_preserves_vision(self, tmp_path):
         """保存有视觉特征的 bd 后重载，has_vision 仍为 True。"""
         import importlib
@@ -1266,6 +1343,8 @@ class TestSingleImageSource:
         assert any("replacing" in r.getMessage().lower() for r in caplog.records)
         assert bd.vision.db is not None
 
+    @pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch is required")
+    @pytest.mark.vision
     def test_extract_from_with_configure_vision_db(self):
         """configure(vision_db=...) 后，vision.extract_from() 无需再传 vision_db。"""
         import importlib
@@ -1305,6 +1384,8 @@ class TestSingleImageSource:
         bd.vision.extract_from(model)
         assert bd.has_vision
 
+    @pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch is required")
+    @pytest.mark.vision
     def test_extract_from_replaces_vision_db_logs_warning(self, caplog):
         """已有 vision_db 时再传给 vision.extract_from() 会发出 warning 并覆盖。"""
         import importlib
@@ -1501,14 +1582,14 @@ class TestTrialStructureBuilder:
 
         ts = build_trial_structure_continuous(
             visual_ids=np.array([1, 2, 3]),
-            trial_window=[-0.1, 0.4],
+            trial_window=[-0.01, 0.04],
             vision_onsets=np.array([100, 200, 300]),
             ntime=500,
             sfreq=1000.0,
         )
         assert len(ts.trial_starts) == 3
-        assert ts.trial_starts[0] == 100 - 100  # -0.1s * 1000 Hz
-        assert ts.trial_ends[0] == 100 + 400
+        assert ts.trial_starts[0] == 100 - 10  # -0.01s * 1000 Hz
+        assert ts.trial_ends[0] == 100 + 40
 
     def test_for_continuous_window_in_samples(self):
         from vneurotk.neuro.trial import (
@@ -1631,6 +1712,31 @@ class TestStimulusSetConstructors:
         with pytest.raises(ValueError, match="1-D"):
             StimulusSet.from_dict(np.array([[1, 2]]), {1: "a", 2: "b"})
 
+    def test_from_dict_requires_every_unique_id(self):
+        from vneurotk.core.stimulus import StimulusSet
+
+        with pytest.raises(ValueError, match=r"missing 1 unique stimulus ID\(s\): \[2\]"):
+            StimulusSet.from_dict(np.array([1, 2, 1]), {1: "a"})
+
+    def test_from_dict_ignores_extra_mapping_keys(self):
+        from vneurotk.core.stimulus import StimulusSet
+
+        ss = StimulusSet.from_dict(np.array([1, 2]), {1: "a", 2: "b", 3: "extra"})
+        assert 3 not in ss
+        assert list(ss.items()) == [(1, "a"), (2, "b")]
+
+    @pytest.mark.parametrize("stim_ids", [[True, 2], [1, "1"]])
+    def test_constructors_preserve_heterogeneous_stimulus_id_types(self, stim_ids):
+        from vneurotk.core.stimulus import StimulusSet
+
+        images = {stim_ids[0]: "a", stim_ids[1]: "b"}
+        stimulus_set = StimulusSet.from_dict(stim_ids, images)
+
+        assert stimulus_set.stim_ids.dtype == object
+        assert stimulus_set.stim_ids.tolist() == stim_ids
+        assert stimulus_set.unique_ids == stim_ids
+        assert [type(value) for value in stimulus_set.stim_ids.tolist()] == [type(value) for value in stim_ids]
+
 
 class TestBaseDataStateProperties:
     """Candidate 2 — BaseData.is_configured and is_vision_ready."""
@@ -1701,6 +1807,7 @@ class TestLazyNeuroLoader:
         assert np.allclose(np.asarray(bd.neuro), arr)
         assert loader.is_loaded is True
 
+    @pytest.mark.hdf5_compat
     def test_hdf5_roundtrip(self, tmp_path):
         import h5py
 
@@ -2497,7 +2604,11 @@ class TestNeuroShapeDim:
             data_mode="continuous",
         )
 
-    def _make_bd_neuro_info_only(self, shape: tuple, data_mode: str = "continuous") -> BaseData:
+    def _make_bd_neuro_info_only(
+        self,
+        shape: tuple,
+        data_mode: Literal["continuous", "epochs", "patterns"] = "continuous",
+    ) -> BaseData:
         from vneurotk.core.recording import BaseData
 
         return BaseData(
