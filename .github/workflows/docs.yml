@@ -35,6 +35,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
+      - name: Test notebook documentation pipeline
+        run: uv run --frozen --python=3.13 --group docs --group test pytest tests/test_docs.py
+
       - name: Build docs
         run: uv run --frozen --python=3.13 --group docs python scripts/docs.py build
 
