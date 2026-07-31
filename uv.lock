@@ -4249,6 +4249,7 @@ notebook = [
     { name = "ipywidgets" },
 ]
 thingsvision = [
+    { name = "numba", marker = "python_full_version < '3.13'" },
     { name = "thingsvision", marker = "python_full_version < '3.13'" },
     { name = "torch", marker = "python_full_version < '3.13'" },
     { name = "transformers", marker = "python_full_version < '3.13'" },
@@ -4307,6 +4308,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'viz'" },
     { name = "mne", marker = "extra == 'mne'" },
     { name = "mne-bids", marker = "extra == 'mne'" },
+    { name = "numba", marker = "python_full_version < '3.13' and extra == 'thingsvision'", specifier = ">=0.59" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pillow" },

@@ -117,7 +117,8 @@ jobs:
 
       - name: Run offline vision and Transformers mock tests with coverage
         run: |
-          uv run --frozen --no-sync --python=3.13 python -m coverage run -m pytest \
+          uv run --frozen --no-sync --python=3.13 python -m coverage run \
+            --source=src/vneurotk/vision -m pytest \
             -m "(vision or backend_transformers) and not integration and not network and not slow"
           uv run --frozen --no-sync --python=3.13 python -m coverage combine
           uv run --frozen --no-sync --python=3.13 python -m coverage json -o coverage.json
