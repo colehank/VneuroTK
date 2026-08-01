@@ -1,0 +1,66 @@
+format: jb-book
+root: index
+parts:
+  - chapters:
+      - file: installation
+        title: Installation
+      - file: format/hdf5
+        title: File formats
+      - file: usage
+        title: Usage
+        sections:
+          - file: usage/path
+            title: Path system
+          - file: usage/data
+            title: Neural data
+          - file: usage/vision_models
+            title: Vision models and backends
+          - file: usage/vision_alone
+            title: Vision extraction (standalone)
+          - file: usage/vision_union
+            title: Vision extraction (with data)
+      - file: example/nod-neurovision
+        title: Examples
+        sections:
+          - file: example_ipynb/data
+            title: Data notebook
+          - file: example_ipynb/path
+            title: Path notebook
+          - file: example_ipynb/vision
+            title: Vision notebook
+          - file: example_ipynb/neurovision
+            title: Neurovision notebook
+      - file: api
+        title: API Reference
+        sections:
+          - file: api/core
+            title: Core
+          - file: api/logging
+            title: Logging
+          - file: api/io
+            title: IO
+          - file: api/neuro
+            title: Neuro
+          - file: api/vision
+            title: Vision
+          - file: api/datasets
+            title: Datasets
+          - file: api/viz
+            title: Viz
+      - file: contribute
+        title: Project
+        sections:
+          - file: governance
+            title: Governance
+          - file: support
+            title: Support
+          - file: citation
+            title: Citation
+          - file: data-policy
+            title: Data policy
+          - file: code_of_conduct
+            title: Code of conduct
+          - file: security
+            title: Security
+      - file: changelog
+        title: Changelog

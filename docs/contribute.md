@@ -34,7 +34,7 @@ To preview the docs locally:
 just docs-serve
 ```
 
-This starts a local server at http://localhost:8000 with live reload. Edit files in `docs/` or add docstrings to your code (the API reference page is auto-generated).
+This starts Sphinx with live reload at http://localhost:8000. Changes under `docs/` and API docstrings under `src/` trigger a rebuild. MyST-NB renders checked-in notebook outputs without executing the notebooks.
 
 ### Submit Feedback
 

@@ -4,22 +4,35 @@ Joint data object and shared primitives.
 
 ## BaseData
 
-::: vneurotk.core.recording.BaseData
-
+```{eval-rst}
+.. autoclass:: vneurotk.core.recording.BaseData
+   :members:
+```
 ## Metadata dictionaries
 
 `NeuroInfo`, `VisionInfo`, and `TrialInfo` are `TypedDict` boundary types for the known metadata keys. Runtime values remain ordinary mutable dictionaries, so existing dict inputs, extra keys, persistence, and equality behavior remain compatible.
 
-::: vneurotk.core.metadata.NeuroInfo
-
-::: vneurotk.core.metadata.VisionInfo
-
-::: vneurotk.core.metadata.TrialInfo
-
+```{eval-rst}
+.. autoclass:: vneurotk.core.metadata.NeuroInfo
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.core.metadata.VisionInfo
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.core.metadata.TrialInfo
+   :members:
+```
 ## StimulusSet
 
-::: vneurotk.core.stimulus.StimulusSet
-
+```{eval-rst}
+.. autoclass:: vneurotk.core.stimulus.StimulusSet
+   :members:
+```
 ## Info
 
-::: vneurotk.core.info.Info
+```{eval-rst}
+.. autoclass:: vneurotk.core.info.Info
+   :members:
+```

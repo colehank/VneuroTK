@@ -1,9 +1,12 @@
 # HDF5 recording format
 
-!!! warning "Pre-alpha schema"
-    The current writer uses schema 1, but the format is not yet declared stable.
-    Keep original source data and pin VneuroTK when files are part of a
-    reproducible workflow.
+```{warning}
+**Pre-alpha schema**
+
+The current writer uses schema 1, but the format is not yet declared stable.
+Keep original source data and pin VneuroTK when files are part of a
+reproducible workflow.
+```
 
 VneuroTK recordings saved by `BaseData.save()` use HDF5. The root attributes
 identify the file and select the reader before recording data is interpreted.

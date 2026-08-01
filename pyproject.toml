@@ -65,11 +65,20 @@ typecheck = [
     "ty",
 ]
 docs = [
-    "zensical",
-    "mkdocstrings-python",
-    "nbconvert",
-    "nbformat",
     "bleach[css]",
+    "myst-nb",
+    "nbformat",
+    "numpydoc",
+    "pydata-sphinx-theme",
+    "PyYAML",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-design",
+    "sphinx-external-toc",
+    "sphinx-notfound-page",
+    "sphinx-reredirects",
+    "sphinx-sitemap",
 ]
 packaging = [
     "check-wheel-contents",
@@ -124,7 +133,7 @@ include = [
 [project.urls]
 bugs = "https://github.com/colehank/vneurotk/issues"
 changelog = "https://github.com/colehank/vneurotk/releases"
-documentation = "https://colehank.github.io/vneurotk/"
+documentation = "https://colehank.github.io/VneuroTK/"
 homepage = "https://github.com/colehank/vneurotk"
 
 [tool.ty]

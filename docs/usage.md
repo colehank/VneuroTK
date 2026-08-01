@@ -1,37 +1,35 @@
 # Usage
 
-<div class="grid cards" markdown>
+::::{grid} 1 2 2 2
+:gutter: 3
 
--   :material-folder-open:{ .lg .middle } **Path System**
+:::{grid-item-card} Path System
+:link: usage/path
+:link-type: doc
+Manage file paths for Ephys, MEG/EEG, and VTK data with a unified path API.
+:::
 
-    ---
+:::{grid-item-card} Data
+:link: usage/data
+:link-type: doc
+Build VneuroTK datasets from different recording sources.
+:::
 
-    Manage file paths for Ephys, MEG/EEG, and VTK data with a unified path API.
+:::{grid-item-card} Vision Models and Backends
+:link: usage/vision_models
+:link-type: doc
+Select and configure supported visual-model backends.
+:::
 
-    [:octicons-arrow-right-24: Path system](usage/path.md)
+:::{grid-item-card} Vision Features (standalone)
+:link: usage/vision_alone
+:link-type: doc
+Extract visual model features from images without VneuroTK data objects.
+:::
 
--   :material-database:{ .lg .middle } **Data**
-
-    ---
-
-    Build vneurotk datasets from different recording sources.
-
-    [:octicons-arrow-right-24: Data](usage/data.md)
-
--   :material-eye:{ .lg .middle } **Vision Features (standalone)**
-
-    ---
-
-    Extract visual model features from images without vneurotk data objects.
-
-    [:octicons-arrow-right-24: Vision standalone](usage/vision_alone.md)
-
--   :material-connection:{ .lg .middle } **Vision Features (with data)**
-
-    ---
-
-    Extract visual features and bind them directly to vneurotk datasets.
-
-    [:octicons-arrow-right-24: Vision with data](usage/vision_union.md)
-
-</div>
+:::{grid-item-card} Vision Features (with data)
+:link: usage/vision_union
+:link-type: doc
+Extract visual features and bind them directly to VneuroTK datasets.
+:::
+::::

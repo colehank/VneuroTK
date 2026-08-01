@@ -109,20 +109,20 @@ coverage:
     uv run --python=3.13 --group test python -m coverage report
     uv run --python=3.13 --group test python -m coverage html
 
-# Serve docs locally with live reload
-# Restart after changing a notebook so it is converted again.
+# Serve Sphinx docs locally with live reload
+# Changes to Markdown, notebooks, configuration, and source docstrings trigger rebuilds.
 docs-serve:
     -lsof -ti :8000 | xargs kill
     uv run --frozen --python=3.13 --group docs python scripts/docs.py serve --dev-addr 0.0.0.0:8000
 
-# Convert notebooks, build docs strictly, and validate rendered routes
+# Build Sphinx docs strictly and validate preserved routes and downloads
 docs-build:
     uv run --frozen --python=3.13 --group docs python scripts/docs.py build
 
 # Validate repository policy metadata
 metadata-check:
     uvx --from cffconvert==2.0.0 cffconvert --validate
-    @uv run --frozen --python=3.13 --group packaging python -c 'import pathlib,tomllib; import yaml; root=pathlib.Path("."); tomllib.loads((root / "zensical.toml").read_text()); files=list((root / ".github").rglob("*.yml")) + list((root / ".github").rglob("*.yaml")); [yaml.safe_load(path.read_text()) for path in files]; print(f"metadata OK: zensical.toml and {len(files)} YAML files")'
+    @uv run --frozen --python=3.13 --group packaging python -c 'import ast,pathlib; import yaml; root=pathlib.Path("."); ast.parse((root / "docs/conf.py").read_text()); yaml.safe_load((root / "docs/_toc.yml").read_text()); files=list((root / ".github").rglob("*.yml")) + list((root / ".github").rglob("*.yaml")); [yaml.safe_load(path.read_text()) for path in files]; print(f"metadata OK: docs/conf.py, docs/_toc.yml, and {len(files)} workflow YAML files")'
 
 # Build the project, useful for checking that packaging is correct
 build:

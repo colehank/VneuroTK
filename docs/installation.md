@@ -1,8 +1,11 @@
 # Installation
 
-!!! warning "Pre-alpha software"
-    VneuroTK is under active development. Public APIs and storage details may
-    change before the first stable release; pin versions in reproducible work.
+```{warning}
+**Pre-alpha software**
+
+VneuroTK is under active development. Public APIs and storage details may
+change before the first stable release; pin versions in reproducible work.
+```
 
 ## Install from PyPI
 
@@ -83,7 +86,7 @@ cd vneurotk
 uv sync --group dev
 ```
 
-The development group contains Ruff, pytest, coverage, ty, Zensical, mkdocstrings-python, and nbconvert. Dependency groups and package extras can be combined:
+The development group contains Ruff, pytest, coverage, ty, Sphinx, MyST-NB, numpydoc, and the PyData Sphinx Theme. Dependency groups and package extras can be combined:
 
 ```sh
 uv sync --group dev --extra vision --extra viz

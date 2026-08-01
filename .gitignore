@@ -48,10 +48,7 @@ dmypy.json
 
 # Documentation build output
 site/
-
-# Generated notebook documentation
-docs/example_ipynb/*.md
-docs/example_ipynb/*_files/
+jupyter_execute/
 
 # IDE files
 # .idea/

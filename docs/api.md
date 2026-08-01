@@ -1,61 +1,47 @@
 # API Reference
 
-<div class="grid cards" markdown>
+::::{grid} 1 2 2 2
+:gutter: 3
 
--   :material-cube-outline:{ .lg .middle } **Core**
+:::{grid-item-card} Core
+:link: api/core
+:link-type: doc
+Joint data object (`BaseData`, `StimulusSet`, `Info`) and shared primitives.
+:::
 
-    ---
+:::{grid-item-card} Logging
+:link: api/logging
+:link-type: doc
+Opt-in, host-safe Loguru and MNE integration.
+:::
 
-    Joint data object (`BaseData`, `StimulusSet`, `Info`) and shared primitives.
+:::{grid-item-card} IO
+:link: api/io
+:link-type: doc
+Path classes and data loaders (`EphysPath`, `MNEPath`, `VTKPath`, `read`).
+:::
 
-    [:octicons-arrow-right-24: core](api/core.md)
+:::{grid-item-card} Neuro
+:link: api/neuro
+:link-type: doc
+Neural-domain primitives (`NeuroData`, `TrialStructure`).
+:::
 
--   :material-message-text-outline:{ .lg .middle } **Logging**
+:::{grid-item-card} Vision
+:link: api/vision
+:link-type: doc
+DNN vision feature extraction (`VisionModel`, `VisualRepresentations`, selectors).
+:::
 
-    ---
+:::{grid-item-card} Datasets
+:link: api/datasets
+:link-type: doc
+Sample dataset fetchers for tutorials and examples.
+:::
 
-    Opt-in, host-safe Loguru and MNE integration.
-
-    [:octicons-arrow-right-24: logging](api/logging.md)
-
--   :material-folder-open:{ .lg .middle } **IO**
-
-    ---
-
-    Path classes and data loaders (`EphysPath`, `MNEPath`, `VTKPath`, `read`).
-
-    [:octicons-arrow-right-24: io](api/io.md)
-
--   :material-brain:{ .lg .middle } **Neuro**
-
-    ---
-
-    Neural-domain primitives (`NeuroData`, `TrialStructure`).
-
-    [:octicons-arrow-right-24: neuro](api/neuro.md)
-
--   :material-eye:{ .lg .middle } **Vision**
-
-    ---
-
-    DNN vision feature extraction (`VisionModel`, `VisualRepresentations`, selectors).
-
-    [:octicons-arrow-right-24: vision](api/vision.md)
-
--   :material-database:{ .lg .middle } **Datasets**
-
-    ---
-
-    Sample dataset fetchers for tutorials and examples.
-
-    [:octicons-arrow-right-24: datasets](api/datasets.md)
-
--   :material-chart-bar:{ .lg .middle } **Viz**
-
-    ---
-
-    Visualization utilities.
-
-    [:octicons-arrow-right-24: viz](api/viz.md)
-
-</div>
+:::{grid-item-card} Viz
+:link: api/viz
+:link-type: doc
+Visualization utilities.
+:::
+::::

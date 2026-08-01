@@ -4,18 +4,32 @@ Path classes and data loaders for VneuroTK.
 
 ## Path Classes
 
-::: vneurotk.io.path.EphysPath
-
-::: vneurotk.io.path.MNEPath
-
-::: vneurotk.io.path.VTKPath
-
-::: vneurotk.io.path.BIDSPath
-
+```{eval-rst}
+.. autoclass:: vneurotk.io.path.EphysPath
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.io.path.MNEPath
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.io.path.VTKPath
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.io.path.BIDSPath
+   :members:
+```
 ## Reading Data
 
-::: vneurotk.io.loader.read
-
-::: vneurotk.io.loader.LazyNeuroLoader
-
-::: vneurotk.io.loader.LazyH5Dict
+```{eval-rst}
+.. autofunction:: vneurotk.io.loader.read
+```
+```{eval-rst}
+.. autoclass:: vneurotk.io.loader.LazyNeuroLoader
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.io.loader.LazyH5Dict
+   :members:
+```

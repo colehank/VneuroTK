@@ -2,4 +2,7 @@
 
 Visualization utilities.
 
-::: vneurotk.viz.data
+```{eval-rst}
+.. automodule:: vneurotk.viz.data
+   :members:
+```

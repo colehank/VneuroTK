@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import subprocess
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -10,327 +10,174 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parents[1]
-SPEC = importlib.util.spec_from_file_location("docs_script", ROOT / "scripts" / "docs.py")
+SPEC = importlib.util.spec_from_file_location("docs_script", ROOT / "scripts/docs.py")
 assert SPEC and SPEC.loader
-docs_script = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = docs_script
-SPEC.loader.exec_module(docs_script)
-
-DocsError = docs_script.DocsError
-DOCS_DEPS_AVAILABLE = all(
-    importlib.util.find_spec(module) is not None for module in ("bleach", "nbconvert", "nbformat")
-)
-requires_docs_deps = pytest.mark.skipif(not DOCS_DEPS_AVAILABLE, reason="requires the docs dependency group")
+DOCS_SCRIPT = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = DOCS_SCRIPT
+SPEC.loader.exec_module(DOCS_SCRIPT)
+CONTRACT = json.loads((ROOT / "tests/data/docs_compatibility.json").read_text(encoding="utf-8"))
+SITE = Path(os.environ["VNEUROTK_DOCS_SITE"]) if "VNEUROTK_DOCS_SITE" in os.environ else None
 
 
-def _nav_targets(items: list) -> list[str]:
-    targets: list[str] = []
-    for item in items:
-        for value in item.values():
-            if isinstance(value, str):
-                targets.append(value)
-            else:
-                targets.extend(_nav_targets(value))
-    return targets
+def _load_conf():
+    path = ROOT / "docs/conf.py"
+    spec = importlib.util.spec_from_file_location("vneurotk_docs_conf", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def _write_template(root: Path) -> None:
-    source = ROOT / "docs" / "templates" / "notebook-markdown.md.j2"
-    target = root / "docs" / "templates" / source.name
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+def test_sphinx_configuration_contract() -> None:
+    conf = _load_conf()
+
+    assert conf.html_theme == "pydata_sphinx_theme"
+    assert conf.nb_execution_mode == "off"
+    assert conf.html_baseurl == "https://colehank.github.io/VneuroTK/"
+    assert {"myst_nb", "numpydoc", "sphinx.ext.autodoc", "sphinx.ext.autosummary"} <= set(conf.extensions)
 
 
-def _write_notebook(path: Path, *, outputs: list[dict] | None = None) -> bytes:
-    cells: list[dict] = [{"id": "markdown-cell", "cell_type": "markdown", "metadata": {}, "source": ["# Example\n"]}]
-    if outputs is not None:
-        cells.append(
-            {
-                "id": "code-cell",
-                "cell_type": "code",
-                "execution_count": 1,
-                "metadata": {},
-                "outputs": outputs,
-                "source": ["display(value)\n"],
-            }
-        )
-    content = json.dumps(
+def test_external_toc_contains_notebooks_and_navigation_order() -> None:
+    import yaml
+
+    toc = yaml.safe_load((ROOT / "docs/_toc.yml").read_text(encoding="utf-8"))
+    sections = toc["parts"][0]["chapters"]
+    titles = [entry["title"] for entry in sections]
+
+    assert titles == [
+        "Installation",
+        "File formats",
+        "Usage",
+        "Examples",
+        "API Reference",
+        "Project",
+        "Changelog",
+    ]
+    serialized = json.dumps(toc)
+    for stem in ("data", "path", "vision", "neurovision"):
+        assert f"example_ipynb/{stem}" in serialized
+
+
+def test_api_target_contract_is_complete() -> None:
+    targets = set(CONTRACT["api_targets"])
+    assert len(targets) == 33
+    api_text = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "docs/api").glob("*.md"))
+
+    assert all(target in api_text for target in targets)
+    assert ":::" not in api_text
+
+
+def test_notebook_sources_have_no_active_widget_state() -> None:
+    for notebook in (ROOT / "docs/example_ipynb").glob("*.ipynb"):
+        node = json.loads(notebook.read_text(encoding="utf-8"))
+        assert "widgets" not in node.get("metadata", {})
+        for cell in node["cells"]:
+            for output in cell.get("outputs", []):
+                assert "application/vnd.jupyter.widget-view+json" not in output.get("data", {})
+
+
+def test_notebook_source_hook_sanitizes_html_without_mutating_source(tmp_path: Path) -> None:
+    original = json.dumps(
         {
-            "cells": cells,
-            "metadata": {},
+            "cells": [
+                {
+                    "cell_type": "code",
+                    "execution_count": 1,
+                    "id": "output",
+                    "metadata": {},
+                    "outputs": [
+                        {
+                            "data": {
+                                "text/html": (
+                                    '<table class="dataframe bad"><tr><td>safe</td></tr></table><script>bad()</script>'
+                                ),
+                                "text/plain": "fallback",
+                            },
+                            "metadata": {},
+                            "output_type": "display_data",
+                        }
+                    ],
+                    "source": ["display(value)"],
+                }
+            ],
+            "metadata": {"widgets": {"state": {}}},
             "nbformat": 4,
             "nbformat_minor": 5,
         }
-    ).encode()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
-    return content
-
-
-def _write_site(root: Path, *, nav_href: str = "../example/") -> tuple[Path, Path]:
-    notebook = root / "docs" / "example_ipynb" / "example.ipynb"
-    source = _write_notebook(notebook)
-    output = root / "site" / "example_ipynb"
-    page = output / "example" / "index.html"
-    page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text(
-        f'<html><body><a class="md-nav__link" href="{nav_href}">Example</a>'
-        '<a href="../example.ipynb">Download the original notebook</a></body></html>',
-        encoding="utf-8",
     )
-    (output / "example.ipynb").write_bytes(source)
-    return notebook, page
+    source = [original]
+
+    DOCS_SCRIPT.sanitize_notebook_source(None, "example", source)
+
+    assert source[0] != original
+    node = json.loads(source[0])
+    assert "widgets" not in node["metadata"]
+    html = node["cells"][0]["outputs"][0]["data"]["text/html"]
+    assert "safe" in html and "dataframe" in html
+    assert "script" not in html and 'bad"' not in html
 
 
-def test_notebook_navigation_targets_generated_markdown() -> None:
-    config = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))
-    targets = _nav_targets(config["project"]["nav"])
-    notebook_dir = ROOT / "docs" / "example_ipynb"
-    expected = {f"example_ipynb/{path.stem}.md" for path in notebook_dir.glob("*.ipynb")}
-    actual = {target for target in targets if target.startswith("example_ipynb/")}
+def test_notebook_source_hook_ignores_markdown_and_prefers_images() -> None:
+    markdown = ["# unchanged"]
+    DOCS_SCRIPT.sanitize_notebook_source(None, "index", markdown)
+    assert markdown == ["# unchanged"]
 
-    assert actual == expected
-    assert not any(target.endswith(".ipynb") for target in targets)
-
-
-def test_validate_site_accepts_rendered_pages_and_preserved_sources(tmp_path: Path) -> None:
-    notebook, _ = _write_site(tmp_path)
-
-    docs_script.validate_site(tmp_path, [notebook])
-
-
-def test_validate_site_rejects_raw_notebook_navigation(tmp_path: Path) -> None:
-    notebook, page = _write_site(tmp_path, nav_href="../example.ipynb")
-
-    with pytest.raises(DocsError, match="raw notebook"):
-        docs_script.validate_site(tmp_path, [notebook])
-
-    page.write_text(
-        '<html><head><link rel="next" href="../example.ipynb"></head>'
-        '<body><a href="../example.ipynb">Download the original notebook</a></body></html>',
-        encoding="utf-8",
-    )
-    with pytest.raises(DocsError, match="raw notebook"):
-        docs_script.validate_site(tmp_path, [notebook])
-
-
-def test_validate_site_rejects_missing_or_changed_notebook(tmp_path: Path) -> None:
-    notebook, page = _write_site(tmp_path)
-    page.unlink()
-    with pytest.raises(DocsError, match="rendered page"):
-        docs_script.validate_site(tmp_path, [notebook])
-
-    _, _ = _write_site(tmp_path)
-    (tmp_path / "site" / "example_ipynb" / "example.ipynb").write_text("changed", encoding="utf-8")
-    with pytest.raises(DocsError, match="does not match"):
-        docs_script.validate_site(tmp_path, [notebook])
-
-
-@requires_docs_deps
-def test_rich_output_uses_placeholder_and_not_plain_fallback(tmp_path: Path) -> None:
-    notebook = tmp_path / "docs" / "example_ipynb" / "example.ipynb"
-    rich = (
-        '<style>.dataframe{position:fixed}</style><details open onclick="bad()"><summary>Full output</summary>'
-        '<table class="dataframe md-nav"><tr><td>last complete row</td></tr></table>'
-        '<pre><span style="color:#ff0000">complete tree</span></pre><script>bad()</script></details>'
-    )
-    _write_notebook(
-        notebook,
-        outputs=[
+    source = [
+        json.dumps(
             {
-                "data": {"text/html": rich, "text/plain": "truncated fallback"},
-                "execution_count": 1,
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "execution_count": 1,
+                        "id": "output",
+                        "metadata": {},
+                        "source": [],
+                        "outputs": [
+                            {
+                                "data": {
+                                    "image/png": "aW1hZ2U=",
+                                    "text/html": "<script>alternative</script>",
+                                },
+                                "metadata": {},
+                                "output_type": "display_data",
+                            }
+                        ],
+                    }
+                ],
                 "metadata": {},
-                "output_type": "execute_result",
+                "nbformat": 4,
+                "nbformat_minor": 5,
             }
-        ],
-    )
-    _write_template(tmp_path)
-
-    manifest = docs_script.convert_notebooks(tmp_path, [notebook])
-    markdown = notebook.with_suffix(".md").read_text(encoding="utf-8")
-
-    assert len(manifest) == 1
-    assert manifest[0].placeholder in markdown
-    assert rich not in markdown
-    assert "truncated fallback" not in markdown
-
-
-@requires_docs_deps
-def test_sanitize_rich_output_preserves_structure_and_removes_active_content() -> None:
-    html = (
-        '<style>.dataframe{position:fixed}</style><details open onclick="bad()"><summary>Full output</summary>'
-        '<table class="dataframe md-nav"><tr><td>last complete row</td></tr></table>'
-        '<pre><span style="color:#ff0000;position:fixed">complete tree</span></pre>'
-        '<script>bad()</script><iframe src="https://evil.invalid"></iframe></details>'
-    )
-
-    clean = docs_script.sanitize_rich_html(html)
-
-    assert all(tag in clean for tag in ("<details", "<summary", "<table", "<pre", "<span"))
-    assert "last complete row" in clean
-    assert "complete tree" in clean
-    assert "dataframe" in clean
-    assert "md-nav" not in clean
-    assert "script" not in clean
-    assert "iframe" not in clean
-    assert "onclick" not in clean
-    assert "position" not in clean
-    assert "<style" not in clean
-
-
-@requires_docs_deps
-def test_inject_rich_outputs_replaces_each_placeholder_once(tmp_path: Path) -> None:
-    notebook = tmp_path / "docs" / "example_ipynb" / "example.ipynb"
-    _write_notebook(notebook)
-    page = tmp_path / "site" / "example_ipynb" / "example" / "index.html"
-    page.parent.mkdir(parents=True)
-    entry = docs_script.RichOutput(
-        "example", 1, 0, "<!-- VNEUROTK-RICH:test -->", "<table><tr><td>full</td></tr></table>"
-    )
-    page.write_text(
-        f'<html><body><article class="md-content__inner md-typeset">{entry.placeholder}</article></body></html>',
-        encoding="utf-8",
-    )
-
-    docs_script.inject_rich_outputs(tmp_path, [entry])
-    result = page.read_text(encoding="utf-8")
-
-    assert entry.placeholder not in result
-    assert result.count('class="notebook-output notebook-output--html"') == 1
-    assert "<table><tbody><tr><td>full</td></tr></tbody></table>" in result
-
-    page.write_text(f"<html><body>{entry.placeholder}{entry.placeholder}</body></html>", encoding="utf-8")
-    with pytest.raises(DocsError, match="exactly once"):
-        docs_script.inject_rich_outputs(tmp_path, [entry])
-
-
-@requires_docs_deps
-def test_rich_output_falls_back_when_image_or_safe_html_is_unavailable(tmp_path: Path) -> None:
-    notebook = tmp_path / "docs" / "example_ipynb" / "example.ipynb"
-    _write_notebook(
-        notebook,
-        outputs=[
-            {
-                "data": {
-                    "image/png": "aW1hZ2U=",
-                    "text/html": "<strong>html alternative</strong>",
-                    "text/plain": "image fallback",
-                },
-                "metadata": {},
-                "output_type": "display_data",
-            },
-            {
-                "data": {"text/html": "<script>only active</script>", "text/plain": "safe fallback"},
-                "metadata": {},
-                "output_type": "display_data",
-            },
-        ],
-    )
-    _write_template(tmp_path)
-
-    prepared, manifest = docs_script._prepare_notebook(notebook)
-
-    assert manifest == []
-    assert "text/html" in prepared.cells[1].outputs[0].data
-    assert "text/html" not in prepared.cells[1].outputs[1].data
-
-
-@requires_docs_deps
-def test_image_resources_are_namespaced_per_notebook(tmp_path: Path) -> None:
-    template = tmp_path / "docs" / "templates" / "notebook-markdown.md.j2"
-    template.parent.mkdir(parents=True)
-    template.write_text(
-        (ROOT / "docs" / "templates" / "notebook-markdown.md.j2").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    notebooks = []
-    for stem in ("first", "second"):
-        notebook = tmp_path / "docs" / "example_ipynb" / f"{stem}.ipynb"
-        _write_notebook(
-            notebook,
-            outputs=[
-                {
-                    "data": {"image/png": "aW1hZ2U=", "text/html": "<strong>alternative</strong>"},
-                    "metadata": {},
-                    "output_type": "display_data",
-                }
-            ],
         )
-        notebooks.append(notebook)
-
-    manifest = docs_script.convert_notebooks(tmp_path, notebooks)
-
-    assert manifest == []
-    for stem in ("first", "second"):
-        markdown = (tmp_path / "docs" / "example_ipynb" / f"{stem}.md").read_text(encoding="utf-8")
-        assert f"{stem}_files/" in markdown
-        resources = list((tmp_path / "docs" / "example_ipynb" / f"{stem}_files").glob("*.png"))
-        assert len(resources) == 1
-        assert resources[0].read_bytes() == b"image"
+    ]
+    DOCS_SCRIPT.sanitize_notebook_source(None, "image", source)
+    assert "text/html" in json.loads(source[0])["cells"][0]["outputs"][0]["data"]
 
 
-@requires_docs_deps
-def test_class_filter_does_not_modify_preformatted_text() -> None:
-    clean = docs_script.sanitize_rich_html("<pre>print('class=\"remove-me\"')</pre>")
+def test_sphinx_dependencies_replace_zensical_stack() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    docs = "\n".join(project["dependency-groups"]["docs"]).lower()
 
-    assert 'class="remove-me"' in clean
-
-
-def test_notebook_theme_preserves_full_scrollable_output() -> None:
-    css = (ROOT / "docs" / "stylesheets" / "extra.css").read_text(encoding="utf-8")
-
-    assert ".notebook-output" in css
-    assert "overflow-x: auto" in css
-    assert "width: max-content" in css
-    assert '[data-md-color-scheme="slate"] .notebook-ansi-' in css
-    notebook_css = css[css.index("/* Notebook outputs") :]
-    assert "max-height" not in notebook_css
-    assert "text-overflow" not in notebook_css
-    assert "line-clamp" not in notebook_css
+    assert all(name in docs for name in ("sphinx", "pydata-sphinx-theme", "myst-nb", "numpydoc"))
+    assert all(name not in docs for name in ("zensical", "mkdocstrings", "nbconvert"))
 
 
-def test_generated_artifacts_are_ignored_but_not_notebooks() -> None:
-    patterns = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+@pytest.mark.skipif(SITE is None, reason="requires VNEUROTK_DOCS_SITE")
+def test_built_site_preserves_routes_and_notebook_downloads() -> None:
+    from sphinx.util.inventory import InventoryFile
 
-    assert "docs/example_ipynb/*.md" in patterns
-    assert "docs/example_ipynb/*_files/" in patterns
-    assert not any(pattern.endswith("*.ipynb") for pattern in patterns)
-
-
-@requires_docs_deps
-def test_convert_never_executes_notebooks(tmp_path: Path) -> None:
-    notebook = tmp_path / "docs" / "example_ipynb" / "example.ipynb"
-    _write_notebook(notebook)
-    _write_template(tmp_path)
-
-    manifest = docs_script.convert_notebooks(tmp_path, [notebook])
-    markdown = notebook.with_suffix(".md").read_text(encoding="utf-8")
-
-    assert manifest == []
-    assert "# Example" in markdown
-    assert not (notebook.parent / "example_files").exists()
-
-
-def test_build_is_strict_and_cleans_after_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    notebook = tmp_path / "docs" / "example_ipynb" / "example.ipynb"
-    _write_notebook(notebook)
-    zensical_args: list[str] = []
-
-    def fake_convert(root, notebooks):
-        notebook.with_suffix(".md").write_text("generated", encoding="utf-8")
-        (notebook.parent / "example_files").mkdir()
-
-    def fake_zensical(root, args):
-        zensical_args.extend(args)
-        raise subprocess.CalledProcessError(1, args)
-
-    monkeypatch.setattr(docs_script, "convert_notebooks", fake_convert)
-    monkeypatch.setattr(docs_script, "_run_zensical", fake_zensical)
-
-    with pytest.raises(subprocess.CalledProcessError):
-        docs_script.build(tmp_path)
-
-    assert zensical_args == ["build", "--clean", "--strict"]
-    assert not notebook.with_suffix(".md").exists()
-    assert not (notebook.parent / "example_files").exists()
+    assert SITE is not None
+    for route in CONTRACT["routes"]:
+        assert (SITE / route).is_file(), route
+    for relative in CONTRACT["notebook_downloads"]:
+        built = SITE / relative
+        source = ROOT / "docs" / relative
+        assert built.read_bytes() == source.read_bytes()
+    inventory_path = SITE / "objects.inv"
+    assert inventory_path.is_file()
+    inventory = InventoryFile.loads(inventory_path.read_bytes(), uri="")
+    object_names = {name for domain in inventory.data.values() for name in domain}
+    assert set(CONTRACT["api_targets"]) <= object_names
+    assert (SITE / "sitemap.xml").is_file()
+    assert (SITE / ".nojekyll").is_file()
+    assert (SITE / "404.html").is_file()

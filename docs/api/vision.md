@@ -4,36 +4,61 @@ DNN vision representation module.
 
 ## VisionData
 
-::: vneurotk.vision.data.VisionData
-
+```{eval-rst}
+.. autoclass:: vneurotk.vision.data.VisionData
+   :members:
+```
 ## VisionModel
 
-::: vneurotk.vision.model.base.VisionModel
-
+```{eval-rst}
+.. autoclass:: vneurotk.vision.model.base.VisionModel
+   :members:
+```
 ## Module Selectors
 
-::: vneurotk.vision.model.selector.ModuleSelector
-
-::: vneurotk.vision.model.selector.BlockLevelSelector
-
-::: vneurotk.vision.model.selector.AllLeafSelector
-
-::: vneurotk.vision.model.selector.CustomSelector
-
+```{eval-rst}
+.. autoclass:: vneurotk.vision.model.selector.ModuleSelector
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.model.selector.BlockLevelSelector
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.model.selector.AllLeafSelector
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.model.selector.CustomSelector
+   :members:
+```
 ## Representations
 
-::: vneurotk.vision.representation.visual_representations.VisualRepresentations
-
-::: vneurotk.vision.representation.visual_representations.VisualRepresentation
-
+```{eval-rst}
+.. autoclass:: vneurotk.vision.representation.visual_representations.VisualRepresentations
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.representation.visual_representations.VisualRepresentation
+   :members:
+```
 ## Image Source
 
-::: vneurotk.vision.image_source.ImageSource
-
+```{eval-rst}
+.. autoclass:: vneurotk.vision.image_source.ImageSource
+   :members:
+```
 ## Metadata
 
-::: vneurotk.vision.meta.ExtractionProvenance
-
-::: vneurotk.vision.meta.ModelInfo
-
-::: vneurotk.vision.meta.ModuleInfo
+```{eval-rst}
+.. autoclass:: vneurotk.vision.meta.ExtractionProvenance
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.meta.ModelInfo
+   :members:
+```
+```{eval-rst}
+.. autoclass:: vneurotk.vision.meta.ModuleInfo
+   :members:
+```

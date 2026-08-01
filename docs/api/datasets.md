@@ -2,10 +2,13 @@
 
 Sample dataset fetchers for tutorials and examples.
 
-!!! warning "Verify rights and citations"
-    Downloading a sample does not establish permission to use or redistribute it.
-    Review the [data policy](../data-policy.md), then verify license, citation, and
-    ethics requirements against each authoritative dataset record.
+```{warning}
+**Verify rights and citations**
+
+Downloading a sample does not establish permission to use or redistribute it.
+Review the [data policy](../data-policy.md), then verify license, citation, and
+ethics requirements against each authoritative dataset record.
+```
 
 ## Download and cache behavior
 
@@ -60,4 +63,7 @@ and 200 stimuli under `nod-meg/`. The MonkeyVision archive has 9 entries under
 - `UnitProp_251024_FanFan_nsd1w_MSB.csv`
 - `ChProp_251024_FanFan_nsd1w_MSB.csv`
 
-::: vneurotk.datasets.sample
+```{eval-rst}
+.. automodule:: vneurotk.datasets.sample
+   :members:
+```

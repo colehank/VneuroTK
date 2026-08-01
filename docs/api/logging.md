@@ -24,6 +24,9 @@ vtk.setup_logging(
 
 ## API
 
-::: vneurotk._log.setup_logging
-
-::: vneurotk._log.set_log_level
+```{eval-rst}
+.. autofunction:: vneurotk._log.setup_logging
+```
+```{eval-rst}
+.. autofunction:: vneurotk._log.set_log_level
+```

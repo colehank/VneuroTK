@@ -4,14 +4,21 @@ Neural-domain primitives for VneuroTK.
 
 ## NeuroData
 
-::: vneurotk.neuro.base.NeuroData
-
+```{eval-rst}
+.. autoclass:: vneurotk.neuro.base.NeuroData
+   :members:
+```
 ## TrialStructure
 
-::: vneurotk.neuro.trial.TrialStructure
-
+```{eval-rst}
+.. autoclass:: vneurotk.neuro.trial.TrialStructure
+   :members:
+```
 ## Builders
 
-::: vneurotk.neuro.trial.build_trial_structure_epochs
-
-::: vneurotk.neuro.trial.build_trial_structure_continuous
+```{eval-rst}
+.. autofunction:: vneurotk.neuro.trial.build_trial_structure_epochs
+```
+```{eval-rst}
+.. autofunction:: vneurotk.neuro.trial.build_trial_structure_continuous
+```
