@@ -74,9 +74,13 @@ html_context = {
 sitemap_url_scheme = "{link}"
 notfound_urls_prefix = "/VneuroTK/"
 notfound_exclude_urls = True
-# This upstream translations index intermittently times out in GitHub-hosted CI.
-# Its parent resources page remains checked by the linkcheck builder.
-linkcheck_ignore = [r"https://www\.contributor-covenant\.org/translations/?"]
+# These links either point back into this repository or intermittently throttle
+# anonymous GitHub-hosted CI. Their underlying files are covered by repository
+# and documentation source contracts instead of external HTTP probing.
+linkcheck_ignore = [
+    r"https://www\.contributor-covenant\.org/translations/?",
+    r"https://github\.com/colehank/[Vv]neuro[Tt][Kk]/.*",
+]
 redirects = {
     "usage/vision-models": "../vision_models/",
     "file-formats/hdf5-recordings": "../../format/hdf5/",
