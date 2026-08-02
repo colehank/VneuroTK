@@ -9,6 +9,7 @@
     "usage/vision_models/index.html",
     "usage/vision_alone/index.html",
     "usage/vision_union/index.html",
+    "examples/index.html",
     "example/nod-neurovision/index.html",
     "example_ipynb/data/index.html",
     "example_ipynb/path/index.html",
@@ -22,6 +23,7 @@
     "api/vision/index.html",
     "api/datasets/index.html",
     "api/viz/index.html",
+    "project/index.html",
     "contribute/index.html",
     "governance/index.html",
     "support/index.html",
@@ -31,7 +33,15 @@
     "security/index.html",
     "changelog/index.html"
   ],
+  "redirects": {
+    "example/nod-neurovision/index.html": "../../example_ipynb/neurovision/"
+  },
   "notebook_downloads": [
+    "usage/path.ipynb",
+    "usage/data.ipynb",
+    "usage/vision_models.ipynb",
+    "usage/vision_alone.ipynb",
+    "usage/vision_union.ipynb",
     "example_ipynb/data.ipynb",
     "example_ipynb/path.ipynb",
     "example_ipynb/vision.ipynb",

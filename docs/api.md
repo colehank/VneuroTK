@@ -1,4 +1,4 @@
-# API Reference
+# API reference
 
 ::::{grid} 1 2 2 2
 :gutter: 3
@@ -15,7 +15,7 @@ Joint data object (`BaseData`, `StimulusSet`, `Info`) and shared primitives.
 Opt-in, host-safe Loguru and MNE integration.
 :::
 
-:::{grid-item-card} IO
+:::{grid-item-card} I/O
 :link: api/io
 :link-type: doc
 Path classes and data loaders (`EphysPath`, `MNEPath`, `VTKPath`, `read`).

@@ -19,11 +19,11 @@ parts:
             title: Vision extraction (standalone)
           - file: usage/vision_union
             title: Vision extraction (with data)
-      - file: example/nod-neurovision
+      - file: examples
         title: Examples
         sections:
           - file: example_ipynb/data
-            title: Data notebook
+            title: Neural data notebook
           - file: example_ipynb/path
             title: Path notebook
           - file: example_ipynb/vision
@@ -38,7 +38,7 @@ parts:
           - file: api/logging
             title: Logging
           - file: api/io
-            title: IO
+            title: I/O
           - file: api/neuro
             title: Neuro
           - file: api/vision
@@ -47,9 +47,11 @@ parts:
             title: Datasets
           - file: api/viz
             title: Viz
-      - file: contribute
+      - file: project
         title: Project
         sections:
+          - file: contribute
+            title: Contributing
           - file: governance
             title: Governance
           - file: support

@@ -1,6 +1,8 @@
 # VneuroTK
 
-A Python toolkit for modern visual neuroscience.
+VneuroTK is a Python toolkit for visual neuroscience. It brings neural recordings, trial and stimulus metadata, and layer-level vision-model representations into a common workflow for research analysis.
+
+The toolkit provides path abstractions and lazy loading for heterogeneous recording sources, explicit representations for continuous, epoched, and pattern data, standalone or recording-integrated vision feature extraction, and structured HDF5 persistence with extraction provenance.
 
 ```{warning}
 :class: dropdown
@@ -11,31 +13,7 @@ change before the first stable release. Pin versions and retain source data
 when using it in research workflows.
 ```
 
-## Quickstart
-
-Install the core package, then create and persist a recording:
-
-```sh
-pip install vneurotk
-```
-
-```python
-from pathlib import Path
-
-import numpy as np
-import vneurotk as vtk
-
-recording = vtk.BaseData.for_patterns(
-    neuro=np.zeros((100, 32)),
-    neuro_info={"ch_names": [f"ch{i}" for i in range(32)]},
-)
-recording.save(vtk.VTKPath(Path("outputs"), subject="01", task="demo"))
-loaded = vtk.read(Path("outputs/sub-01_task-demo.h5"))
-```
-
-`loaded.neuro` is a `NeuroData` container. Use `loaded.neuro.data` for its
-plain NumPy array. See [Installation](installation.md) for vision, plotting,
-and M/EEG extras.
+## Explore the documentation
 
 ::::{grid} 1 2 2 2
 :gutter: 3
@@ -43,30 +21,38 @@ and M/EEG extras.
 :::{grid-item-card} Installation
 :link: installation
 :link-type: doc
-Install VneuroTK and its optional dependencies.
+Install the core toolkit and the optional integrations needed by your workflow.
+:::
+
+:::{grid-item-card} File formats
+:link: format/hdf5
+:link-type: doc
+Understand the VneuroTK HDF5 layout, persistence guarantees, and compatibility policy.
 :::
 
 :::{grid-item-card} Usage
 :link: usage
 :link-type: doc
-Learn how to use paths, data objects, and vision feature extraction.
+Learn individual tasks through notebook-native guides for paths, neural data, and vision extraction.
 :::
 
-:::{grid-item-card} API Reference
+:::{grid-item-card} Examples
+:link: examples
+:link-type: doc
+Follow complete notebooks with committed code and outputs.
+:::
+
+:::{grid-item-card} API reference
 :link: api
 :link-type: doc
-Auto-generated documentation for all public modules and classes.
+Look up the documented classes, functions, and modules.
 :::
 
-:::{grid-item-card} Changelog
-:link: changelog
+:::{grid-item-card} Project
+:link: project
 :link-type: doc
-Release notes and version history.
-:::
-
-:::{grid-item-card} Research and project policies
-:link: data-policy
-:link-type: doc
-Review dataset rights and ethics, citation, support, governance, and security.
+Contribute, get support, cite the toolkit, and review project policies.
 :::
 ::::
+
+See the [changelog](changelog.md) for release history.

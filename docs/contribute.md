@@ -34,7 +34,9 @@ To preview the docs locally:
 just docs-serve
 ```
 
-This starts Sphinx with live reload at http://localhost:8000. Changes under `docs/` and API docstrings under `src/` trigger a rebuild. MyST-NB renders checked-in notebook outputs without executing the notebooks.
+This starts Sphinx with live reload at http://localhost:8000. Changes under `docs/` and API docstrings under `src/` trigger a rebuild. MyST-NB renders checked-in notebook cells and outputs without executing them.
+
+Usage guides and complete examples are authored as notebooks. Running or refreshing a notebook is an explicit maintainer action: use an environment containing the optional backend, data, and network dependencies declared at the top of that notebook, remove transient machine-specific output, and commit the reviewed `.ipynb`. Neither `just docs-serve` nor `just docs-build` starts a kernel.
 
 ### Submit Feedback
 

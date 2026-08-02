@@ -62,6 +62,13 @@ html_theme_options = {
     "github_url": "https://github.com/colehank/vneurotk",
     "logo": {"text": project},
     "show_toc_level": 2,
+    "use_edit_page_button": True,
+}
+html_context = {
+    "github_user": "colehank",
+    "github_repo": "vneurotk",
+    "github_version": "main",
+    "doc_path": "docs",
 }
 
 sitemap_url_scheme = "{link}"
@@ -70,6 +77,7 @@ notfound_exclude_urls = True
 redirects = {
     "usage/vision-models": "../vision_models/",
     "file-formats/hdf5-recordings": "../../format/hdf5/",
+    "example/nod-neurovision": "../../example_ipynb/neurovision/",
 }
 
 

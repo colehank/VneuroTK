@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK_DIR = Path("docs/example_ipynb")
+DOCS_DIR = Path("docs")
 SITE_DIR = Path("site")
 CONTRACT_PATH = Path("tests/data/docs_compatibility.json")
 ALLOWED_TAGS = {
@@ -57,9 +57,9 @@ class DocsError(RuntimeError):
 
 
 def discover_notebooks(root: Path = ROOT) -> list[Path]:
-    notebooks = sorted((root / NOTEBOOK_DIR).glob("*.ipynb"))
+    notebooks = sorted((root / DOCS_DIR).rglob("*.ipynb"))
     if not notebooks:
-        raise DocsError(f"no notebooks found in {root / NOTEBOOK_DIR}")
+        raise DocsError(f"no notebooks found in {root / DOCS_DIR}")
     return notebooks
 
 
@@ -162,7 +162,7 @@ def _run_sphinx(root: Path) -> None:
 def finalize_site(root: Path = ROOT) -> None:
     site = root / SITE_DIR
     for notebook in discover_notebooks(root):
-        destination = site / NOTEBOOK_DIR.relative_to("docs") / notebook.name
+        destination = site / notebook.relative_to(root / DOCS_DIR)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(notebook, destination)
 
@@ -180,6 +180,10 @@ def validate_site(root: Path = ROOT) -> None:
     for route in contract["routes"]:
         if not (site / route).is_file():
             raise DocsError(f"missing documentation route: {route}")
+    for relative, target in contract.get("redirects", {}).items():
+        redirect = site / relative
+        if f"url={target}" not in redirect.read_text(encoding="utf-8"):
+            raise DocsError(f"documentation redirect does not target {target}: {relative}")
     for relative in contract["notebook_downloads"]:
         built = site / relative
         source = root / "docs" / relative

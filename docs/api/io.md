@@ -1,4 +1,4 @@
-# IO
+# I/O
 
 Path classes and data loaders for VneuroTK.
 

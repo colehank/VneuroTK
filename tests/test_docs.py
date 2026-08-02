@@ -17,6 +17,8 @@ sys.modules[SPEC.name] = DOCS_SCRIPT
 SPEC.loader.exec_module(DOCS_SCRIPT)
 CONTRACT = json.loads((ROOT / "tests/data/docs_compatibility.json").read_text(encoding="utf-8"))
 SITE = Path(os.environ["VNEUROTK_DOCS_SITE"]) if "VNEUROTK_DOCS_SITE" in os.environ else None
+USAGE_STEMS = ("path", "data", "vision_models", "vision_alone", "vision_union")
+EXAMPLE_STEMS = ("data", "path", "vision", "neurovision")
 
 
 def _load_conf():
@@ -53,9 +55,36 @@ def test_external_toc_contains_notebooks_and_navigation_order() -> None:
         "Project",
         "Changelog",
     ]
+    assert sections[2]["file"] == "usage"
+    assert sections[3]["file"] == "examples"
+    assert sections[5]["file"] == "project"
+
+    usage_docs = {entry["file"] for entry in sections[2]["sections"]}
+    assert usage_docs == {f"usage/{stem}" for stem in USAGE_STEMS}
+    assert all((ROOT / f"docs/usage/{stem}.ipynb").is_file() for stem in USAGE_STEMS)
+    assert all(not (ROOT / f"docs/usage/{stem}.md").exists() for stem in USAGE_STEMS)
+
     serialized = json.dumps(toc)
-    for stem in ("data", "path", "vision", "neurovision"):
+    for stem in EXAMPLE_STEMS:
         assert f"example_ipynb/{stem}" in serialized
+
+
+def test_landing_pages_are_consistent_and_markdown_has_no_python_walkthroughs() -> None:
+    home = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    examples = (ROOT / "docs/examples.md").read_text(encoding="utf-8")
+    project = (ROOT / "docs/project.md").read_text(encoding="utf-8")
+
+    assert "Quickstart" not in home
+    assert "```python" not in home and "```py" not in home
+    for target in ("installation", "usage", "examples", "api", "project"):
+        assert f":link: {target}" in home
+    for stem in EXAMPLE_STEMS:
+        assert f":link: example_ipynb/{stem}" in examples
+    assert ":link: contribute" in project
+
+    markdown = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "docs").rglob("*.md"))
+    assert "```python" not in markdown
+    assert "```py\n" not in markdown
 
 
 def test_api_target_contract_is_complete() -> None:
@@ -67,13 +96,23 @@ def test_api_target_contract_is_complete() -> None:
     assert ":::" not in api_text
 
 
-def test_notebook_sources_have_no_active_widget_state() -> None:
-    for notebook in (ROOT / "docs/example_ipynb").glob("*.ipynb"):
+def test_notebook_sources_are_clean_and_consistent() -> None:
+    notebooks = list((ROOT / "docs").rglob("*.ipynb"))
+    assert len(notebooks) == len(USAGE_STEMS) + len(EXAMPLE_STEMS)
+
+    forbidden = ("np.ndarray subclass", "/nfs/t", "/var/tmp/", "Pepare VneuroTK")
+    for notebook in notebooks:
         node = json.loads(notebook.read_text(encoding="utf-8"))
         assert "widgets" not in node.get("metadata", {})
+        headings: list[str] = []
         for cell in node["cells"]:
+            if cell["cell_type"] == "markdown":
+                headings.extend(line for line in cell["source"] if line.startswith("# "))
             for output in cell.get("outputs", []):
                 assert "application/vnd.jupyter.widget-view+json" not in output.get("data", {})
+        assert len(headings) == 1, notebook
+        serialized = notebook.read_text(encoding="utf-8")
+        assert not any(value in serialized for value in forbidden), notebook
 
 
 def test_notebook_source_hook_sanitizes_html_without_mutating_source(tmp_path: Path) -> None:
@@ -169,6 +208,9 @@ def test_built_site_preserves_routes_and_notebook_downloads() -> None:
     assert SITE is not None
     for route in CONTRACT["routes"]:
         assert (SITE / route).is_file(), route
+    for relative, target in CONTRACT["redirects"].items():
+        redirect = (SITE / relative).read_text(encoding="utf-8")
+        assert f"url={target}" in redirect
     for relative in CONTRACT["notebook_downloads"]:
         built = SITE / relative
         source = ROOT / "docs" / relative
