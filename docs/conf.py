@@ -74,6 +74,9 @@ html_context = {
 sitemap_url_scheme = "{link}"
 notfound_urls_prefix = "/VneuroTK/"
 notfound_exclude_urls = True
+# This upstream translations index intermittently times out in GitHub-hosted CI.
+# Its parent resources page remains checked by the linkcheck builder.
+linkcheck_ignore = [r"https://www\.contributor-covenant\.org/translations/?"]
 redirects = {
     "usage/vision-models": "../vision_models/",
     "file-formats/hdf5-recordings": "../../format/hdf5/",
