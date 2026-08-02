@@ -21,7 +21,7 @@ Or with `pip`:
 pip install vneurotk
 ```
 
-The core installation does not install PyTorch, Transformers, or Matplotlib.
+The core installation does not install PyTorch, Transformers, or Matplotlib. Visualization and DNN vision are separate optional features: `viz` installs Matplotlib for plotting recordings, while the vision-related extras install model backends for extracting representations from images.
 
 ## Optional dependencies
 
@@ -29,8 +29,8 @@ Install the extra that matches the features or model backend you need:
 
 | Extra | Installs | Use for |
 | --- | --- | --- |
-| `vision` | `torch`, `transformers` | Shared vision-model and feature-extraction support |
-| `viz` | `matplotlib` | Plotting and visualization |
+| `vision` | `torch`, `transformers` | DNN vision-model and feature-extraction support |
+| `viz` | `matplotlib` | Neural-recording and stimulus-timing visualization |
 | `timm` | `torch`, `transformers`, `timm` | timm model backend, including the shared vision stack |
 | `thingsvision` | `torch`, `transformers`, `numba`, `thingsvision` (Python 3.11–3.12) | thingsvision backend, including the shared vision stack |
 | `mne` | `mne`, `mne-bids` | M/EEG analysis and BIDS support |
@@ -40,8 +40,8 @@ Install the extra that matches the features or model backend you need:
 For example:
 
 ```sh
-uv add "vneurotk[vision]"       # PyTorch + Transformers
-uv add "vneurotk[viz]"          # Matplotlib plotting
+uv add "vneurotk[vision]"       # DNN vision extraction: PyTorch + Transformers
+uv add "vneurotk[viz]"          # recording visualization: Matplotlib
 uv add "vneurotk[timm]"         # timm + shared vision dependencies
 uv add "vneurotk[thingsvision]" # thingsvision + shared vision dependencies
 uv add "vneurotk[mne]"          # M/EEG analysis
@@ -49,7 +49,7 @@ uv add "vneurotk[notebook]"     # Jupyter support
 uv add "vneurotk[cebra]"        # CEBRA support
 ```
 
-Multiple real extras can be installed together:
+Multiple real extras can be installed together. For example, this installs M/EEG support, Jupyter, and recording visualization; it does not install DNN vision extraction:
 
 ```sh
 uv add "vneurotk[mne,notebook,viz]"
@@ -70,8 +70,8 @@ uv sync
 `uv sync` installs the core package only. Add the extras needed for local work:
 
 ```sh
-uv sync --extra vision       # shared vision stack
-uv sync --extra viz          # plotting
+uv sync --extra vision       # DNN vision extraction stack
+uv sync --extra viz          # recording visualization
 uv sync --extra timm         # timm backend + shared vision stack
 uv sync --extra thingsvision # thingsvision backend + shared vision stack
 ```
@@ -91,3 +91,9 @@ The development group contains Ruff, pytest, coverage, ty, Sphinx, MyST-NB, nump
 ```sh
 uv sync --group dev --extra vision --extra viz
 ```
+
+## Next steps
+
+- [Visualize neural recordings](usage/viz.ipynb) with `BaseData.plot` or `vneurotk.viz.plot_data` after installing `viz`.
+- [Configure DNN vision models](usage/vision_models.ipynb) after installing the backend extra you need.
+- Compare the separate [Visualization API](api/viz.md) and [DNN Vision API](api/vision.md) before choosing extras.

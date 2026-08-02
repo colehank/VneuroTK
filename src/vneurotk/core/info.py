@@ -26,7 +26,7 @@ class Info:
     Parameters
     ----------
     neuro : dict
-        Dict with keys ``n_time``, ``n_neuro``, ``sfreq``, ``highpass``,
+        Dict with keys ``n_time``, ``n_chan``, ``sfreq``, ``highpass``,
         ``lowpass``.
     visual : dict or None
         Dict with key ``n_stim``.

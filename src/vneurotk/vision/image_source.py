@@ -13,7 +13,7 @@ __all__ = ["ImageSource"]
 class ImageSource(Protocol):
     """Protocol for any mapping from stimulus ID to image data.
 
-    Both :class:`~vneurotk.neuro.base.StimulusSet` and
+    Both :class:`~vneurotk.core.stimulus.StimulusSet` and
     :class:`~vneurotk.io.loader.LazyH5Dict` satisfy this protocol, as does a
     plain :class:`dict`.  Callers that accept stimulus images should annotate
     their parameter as ``ImageSource`` rather than enumerating concrete types.

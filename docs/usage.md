@@ -17,19 +17,29 @@ Manage file paths for Ephys, MEG/EEG, and VTK data with a unified path API.
 Build VneuroTK datasets from different recording sources.
 :::
 
-:::{grid-item-card} Vision models and backends
-:link: usage/vision_models
+:::{grid-item-card} Visualization
+:link: usage/viz
 :link-type: doc
-Select and configure supported visual-model backends.
+Plot stimulus timing and neural activity for continuous and epoched recordings with Matplotlib.
++++
+Requires the `viz` extra. This plots recordings; it does not extract DNN image representations.
 :::
 
-:::{grid-item-card} Standalone vision extraction
+:::{grid-item-card} DNN vision models and backends
+:link: usage/vision_models
+:link-type: doc
+Select and configure supported DNN vision-model backends.
++++
+Requires a matching vision extra. Start with [Installation](installation.md) to distinguish backend dependencies from `viz` plotting.
+:::
+
+:::{grid-item-card} Standalone DNN vision extraction
 :link: usage/vision_alone
 :link-type: doc
 Extract visual model features from images without VneuroTK data objects.
 :::
 
-:::{grid-item-card} Integrated vision extraction
+:::{grid-item-card} Integrated DNN vision extraction
 :link: usage/vision_union
 :link-type: doc
 Extract visual features and bind them directly to VneuroTK datasets.

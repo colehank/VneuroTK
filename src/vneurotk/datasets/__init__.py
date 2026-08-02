@@ -1,7 +1,7 @@
 """Sample dataset fetchers for VneuroTK tutorials and examples.
 
-The ``sample`` module downloads two bundled datasets from Zenodo and returns
-a single root directory from which you navigate with standard path operations.
+The ``sample`` module downloads two sample datasets from Zenodo and returns a
+single root directory from which you navigate with standard path operations.
 
 Usage
 -----

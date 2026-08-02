@@ -20,6 +20,15 @@ Path classes and data loaders for VneuroTK.
 .. autoclass:: vneurotk.io.path.BIDSPath
    :members:
 ```
+## Path constants
+
+```{eval-rst}
+.. autodata:: vneurotk.io.path.EPHYS_DTYPES
+```
+```{eval-rst}
+.. autodata:: vneurotk.io.path.EPHYS_EXTENSIONS
+```
+
 ## Reading Data
 
 ```{eval-rst}

@@ -115,6 +115,10 @@ docs-serve:
     -lsof -ti :8000 | xargs kill
     uv run --frozen --python=3.13 --group docs python scripts/docs.py serve --dev-addr 0.0.0.0:8000
 
+# Execute deterministic visualization notebooks without modifying sources
+docs-check-viz:
+    MPLBACKEND=Agg uv run --frozen --python=3.13 --group docs --extra viz --extra notebook python scripts/docs.py check-viz
+
 # Build Sphinx docs strictly and validate preserved routes and downloads
 docs-build:
     uv run --frozen --python=3.13 --group docs python scripts/docs.py build

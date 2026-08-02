@@ -22,3 +22,9 @@ Neural-domain primitives for VneuroTK.
 ```{eval-rst}
 .. autofunction:: vneurotk.neuro.trial.build_trial_structure_continuous
 ```
+
+## MNE utility
+
+```{eval-rst}
+.. autofunction:: vneurotk.utils.mne_utils.get_event_samples
+```

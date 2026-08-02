@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -17,8 +19,8 @@ sys.modules[SPEC.name] = DOCS_SCRIPT
 SPEC.loader.exec_module(DOCS_SCRIPT)
 CONTRACT = json.loads((ROOT / "tests/data/docs_compatibility.json").read_text(encoding="utf-8"))
 SITE = Path(os.environ["VNEUROTK_DOCS_SITE"]) if "VNEUROTK_DOCS_SITE" in os.environ else None
-USAGE_STEMS = ("path", "data", "vision_models", "vision_alone", "vision_union")
-EXAMPLE_STEMS = ("data", "path", "vision", "neurovision")
+USAGE_STEMS = ("path", "data", "viz", "vision_models", "vision_alone", "vision_union")
+EXAMPLE_STEMS = ("data", "path", "viz", "vision", "neurovision")
 
 
 def _load_conf():
@@ -59,8 +61,8 @@ def test_external_toc_contains_notebooks_and_navigation_order() -> None:
     assert sections[3]["file"] == "examples"
     assert sections[5]["file"] == "project"
 
-    usage_docs = {entry["file"] for entry in sections[2]["sections"]}
-    assert usage_docs == {f"usage/{stem}" for stem in USAGE_STEMS}
+    usage_docs = [entry["file"] for entry in sections[2]["sections"]]
+    assert usage_docs == [f"usage/{stem}" for stem in USAGE_STEMS]
     assert all((ROOT / f"docs/usage/{stem}.ipynb").is_file() for stem in USAGE_STEMS)
     assert all(not (ROOT / f"docs/usage/{stem}.md").exists() for stem in USAGE_STEMS)
 
@@ -80,6 +82,7 @@ def test_landing_pages_are_consistent_and_markdown_has_no_python_walkthroughs() 
         assert f":link: {target}" in home
     for stem in EXAMPLE_STEMS:
         assert f":link: example_ipynb/{stem}" in examples
+    assert "`viz`" in examples
     assert ":link: contribute" in project
 
     markdown = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "docs").rglob("*.md"))
@@ -89,11 +92,18 @@ def test_landing_pages_are_consistent_and_markdown_has_no_python_walkthroughs() 
 
 def test_api_target_contract_is_complete() -> None:
     targets = set(CONTRACT["api_targets"])
-    assert len(targets) == 33
+    assert len(targets) == 46
     api_text = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "docs/api").glob("*.md"))
 
     assert all(target in api_text for target in targets)
     assert ":::" not in api_text
+
+
+def test_redirect_contract_matches_sphinx_configuration() -> None:
+    conf = _load_conf()
+    expected = {f"{source}/index.html": target for source, target in conf.redirects.items()}
+
+    assert CONTRACT["redirects"] == expected
 
 
 def test_notebook_sources_are_clean_and_consistent() -> None:
@@ -101,18 +111,43 @@ def test_notebook_sources_are_clean_and_consistent() -> None:
     assert len(notebooks) == len(USAGE_STEMS) + len(EXAMPLE_STEMS)
 
     forbidden = ("np.ndarray subclass", "/nfs/t", "/var/tmp/", "Pepare VneuroTK")
+    transient_output = re.compile(r"\x1b|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}|:[A-Za-z_][A-Za-z0-9_]*:\d+")
+    png_notebooks = {ROOT / "docs/usage/viz.ipynb", ROOT / "docs/example_ipynb/viz.ipynb"}
     for notebook in notebooks:
         node = json.loads(notebook.read_text(encoding="utf-8"))
         assert "widgets" not in node.get("metadata", {})
         headings: list[str] = []
+        markdown_sources: list[str] = []
+        has_png = False
         for cell in node["cells"]:
+            raw_source = cell["source"]
+            source = "".join(raw_source) if isinstance(raw_source, list) else raw_source
             if cell["cell_type"] == "markdown":
-                headings.extend(line for line in cell["source"] if line.startswith("# "))
+                headings.extend(line for line in source.splitlines() if line.startswith("# "))
+                markdown_sources.append(source)
+            elif cell["cell_type"] == "code":
+                ast.parse(source)
             for output in cell.get("outputs", []):
-                assert "application/vnd.jupyter.widget-view+json" not in output.get("data", {})
+                assert output.get("output_type") != "error"
+                data = output.get("data", {})
+                assert "application/vnd.jupyter.widget-view+json" not in data
+                has_png |= "image/png" in data
+                stream = "".join(output.get("text", []))
+                assert not transient_output.search(stream), notebook
         assert len(headings) == 1, notebook
+        assert has_png == (notebook in png_notebooks), notebook
+        assert f'href="../{notebook.stem}.ipynb"' in "\n".join(markdown_sources), notebook
         serialized = notebook.read_text(encoding="utf-8")
         assert not any(value in serialized for value in forbidden), notebook
+
+
+def test_local_link_validation_rejects_missing_targets(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text('<a href="missing.ipynb">download</a>', encoding="utf-8")
+
+    with pytest.raises(DOCS_SCRIPT.DocsError, match="broken local documentation link"):
+        DOCS_SCRIPT.validate_local_links(site)
 
 
 def test_notebook_source_hook_sanitizes_html_without_mutating_source(tmp_path: Path) -> None:

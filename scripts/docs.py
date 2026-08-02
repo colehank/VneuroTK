@@ -7,8 +7,10 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Sequence
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = Path("docs")
@@ -50,10 +52,28 @@ ALLOWED_CLASSES = {
     *(f"notebook-ansi-{name}" for name in ANSI_COLORS.values()),
 }
 IMAGE_MIMES = {"image/png", "image/jpeg", "image/svg+xml"}
+VIZ_NOTEBOOKS = (Path("docs/usage/viz.ipynb"), Path("docs/example_ipynb/viz.ipynb"))
 
 
 class DocsError(RuntimeError):
     """Raised when documentation preparation or validation fails."""
+
+
+class _LinkCollector(HTMLParser):
+    """Collect local link targets and document IDs from generated HTML."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+        self.ids: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if identifier := attributes.get("id"):
+            self.ids.add(identifier)
+        attribute = "href" if tag in {"a", "link"} else "src" if tag in {"img", "script"} else None
+        if attribute and (target := attributes.get(attribute)):
+            self.links.append(target)
 
 
 def discover_notebooks(root: Path = ROOT) -> list[Path]:
@@ -174,6 +194,55 @@ def finalize_site(root: Path = ROOT) -> None:
         raise DocsError(f"missing generated not-found page: {nested_404}")
 
 
+def _resolve_local_target(site: Path, page: Path, target: str) -> tuple[Path | None, str]:
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc or target.startswith(("mailto:", "tel:")):
+        return None, ""
+    path = unquote(parsed.path)
+    if path.startswith("/VneuroTK/"):
+        candidate = site / path.removeprefix("/VneuroTK/")
+    elif path.startswith("/"):
+        return None, ""
+    else:
+        candidate = page.parent / path
+    candidate = candidate.resolve()
+    site_resolved = site.resolve()
+    if candidate != site_resolved and site_resolved not in candidate.parents:
+        raise DocsError(f"local documentation link escapes the site: {page.relative_to(site)} -> {target}")
+    if not path:
+        candidate = page
+    elif path.endswith("/") or candidate.is_dir():
+        candidate /= "index.html"
+    return candidate, unquote(parsed.fragment)
+
+
+def validate_local_links(site: Path) -> None:
+    """Require every generated local link and fragment to resolve."""
+    parsed_pages: dict[Path, _LinkCollector] = {}
+    for page in site.rglob("*.html"):
+        if "_static" in page.relative_to(site).parts:
+            continue
+        collector = _LinkCollector()
+        collector.feed(page.read_text(encoding="utf-8"))
+        parsed_pages[page.resolve()] = collector
+
+    for page, collector in parsed_pages.items():
+        for target in collector.links:
+            candidate, fragment = _resolve_local_target(site, page, target)
+            if candidate is None:
+                continue
+            if not candidate.is_file():
+                raise DocsError(f"broken local documentation link: {page.relative_to(site)} -> {target}")
+            if fragment and candidate.suffix == ".html":
+                linked = parsed_pages.get(candidate.resolve())
+                if linked is None:
+                    linked = _LinkCollector()
+                    linked.feed(candidate.read_text(encoding="utf-8"))
+                    parsed_pages[candidate.resolve()] = linked
+                if fragment not in linked.ids:
+                    raise DocsError(f"missing documentation fragment: {page.relative_to(site)} -> {target}")
+
+
 def validate_site(root: Path = ROOT) -> None:
     site = root / SITE_DIR
     contract = json.loads((root / CONTRACT_PATH).read_text(encoding="utf-8"))
@@ -194,6 +263,7 @@ def validate_site(root: Path = ROOT) -> None:
     for artifact in ("objects.inv", "sitemap.xml", ".nojekyll", "404.html"):
         if not (site / artifact).is_file():
             raise DocsError(f"missing documentation artifact: {artifact}")
+    validate_local_links(site)
 
 
 def build(root: Path = ROOT) -> None:
@@ -234,11 +304,36 @@ def serve(root: Path = ROOT, *, dev_addr: str = "0.0.0.0:8000") -> None:
     )
 
 
+def check_viz_notebooks(root: Path = ROOT) -> None:
+    """Execute deterministic visualization notebooks without changing sources."""
+    import nbformat
+    from nbclient import NotebookClient
+
+    for relative in VIZ_NOTEBOOKS:
+        path = root / relative
+        notebook = nbformat.read(path, as_version=4)
+        notebook.cells.insert(0, nbformat.v4.new_code_cell("%matplotlib inline"))
+        for cell in notebook.cells:
+            if cell.cell_type == "code":
+                cell.outputs = []
+                cell.execution_count = None
+        executed = NotebookClient(notebook, timeout=120, kernel_name="python3").execute(cwd=root)
+        images = [
+            output.data["image/png"]
+            for cell in executed.cells
+            for output in cell.get("outputs", [])
+            if output.get("output_type") in {"display_data", "execute_result"} and "image/png" in output.get("data", {})
+        ]
+        if not images:
+            raise DocsError(f"visualization notebook produced no PNG output: {relative}")
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build VneuroTK documentation with Sphinx and MyST-NB.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("build", help="Build strictly and validate the documentation site.")
     subparsers.add_parser("finalize", help="Finalize and validate an existing Sphinx site.")
+    subparsers.add_parser("check-viz", help="Execute deterministic visualization notebooks in memory.")
     serve_parser = subparsers.add_parser("serve", help="Build and serve the documentation with live reload.")
     serve_parser.add_argument("--dev-addr", default="0.0.0.0:8000")
     return parser
@@ -252,6 +347,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "finalize":
             finalize_site()
             validate_site()
+        elif args.command == "check-viz":
+            check_viz_notebooks()
         else:
             serve(dev_addr=args.dev_addr)
     except (DocsError, subprocess.CalledProcessError) as exc:

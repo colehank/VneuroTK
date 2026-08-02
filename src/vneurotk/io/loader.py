@@ -167,7 +167,8 @@ class LazyNeuroLoader:
     calls return the same array without re-reading from disk.
 
     Satisfies the ``NeuroLoader = Callable[[], np.ndarray]`` contract, so it
-    can be passed directly to :meth:`~vneurotk.neuro.base.BaseData.set_neuro_loader`.
+    can be passed directly to
+    :meth:`~vneurotk.core.recording.BaseData.set_neuro_loader`.
 
     Parameters
     ----------
@@ -250,12 +251,14 @@ def read(
     ----------
     path : VTKPath, EphysPath, MNEPath, BIDSPath, Path, or str
         Data source.  Plain ``Path`` / ``str`` is treated as a direct
-        file path (e.g. an ``.h5`` file saved by :meth:`BaseData.save`).
+        file path (e.g. an ``.h5`` file saved by
+        :meth:`~vneurotk.core.recording.BaseData.save`).
     pre_load : bool
         If ``True``, eagerly load neuro data into memory before returning
-        (calls :meth:`BaseData.load` internally).
+        (calls :meth:`~vneurotk.core.recording.BaseData.load` internally).
         If ``False`` (default), data is loaded lazily on first access to
-        :attr:`BaseData.neuro` — call :meth:`BaseData.load` explicitly to
+        :attr:`~vneurotk.core.recording.BaseData.neuro` — call
+        :meth:`~vneurotk.core.recording.BaseData.load` explicitly to
         trigger loading at a chosen point.  For data types that carry no
         lazy loader (already eager), this flag is a no-op.
 
@@ -541,7 +544,8 @@ def _load_ephys_stim_fr(path: EphysPath) -> BaseData:
 
 
 def _build_bd_from_mne_raw(raw: Any, source_file: str) -> BaseData:
-    """Build a lazy continuous :class:`BaseData` from an open MNE Raw object.
+    """Build a lazy continuous :class:`~vneurotk.core.recording.BaseData`
+    from an open MNE Raw object.
 
     Shared by :func:`_load_from_mne` and :func:`_load_from_bids`.
 

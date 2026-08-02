@@ -17,6 +17,7 @@ pytestmark = [
 
 
 def test_plot_data_returns_figure():
+    from matplotlib import pyplot as plt
     from matplotlib.figure import Figure
 
     from vneurotk.viz import plot_data
@@ -28,6 +29,66 @@ def test_plot_data_returns_figure():
 
     assert isinstance(figure, Figure)
     assert len(figure.axes) >= 2
+    plt.close(figure)
+
+
+def test_unconfigured_continuous_plot_has_no_stimulus_category():
+    from matplotlib import pyplot as plt
+
+    from vneurotk import BaseData
+
+    data = BaseData.for_continuous(np.ones((20, 2)), {"sfreq": 10.0})
+
+    figure = data.plot(window=(0, 20))
+
+    assert [tick.get_text() for tick in figure.axes[0].get_yticklabels()] == ["none"]
+    plt.close(figure)
+
+
+def test_pattern_data_cannot_be_plotted_as_a_recording():
+    from vneurotk import BaseData
+
+    data = BaseData.for_patterns(np.ones((4, 2)))
+
+    with pytest.raises(ValueError, match="no time axis"):
+        data.plot()
+
+
+def test_plot_data_validates_aligned_inputs_and_sampling_frequency():
+    from vneurotk.viz import plot_data
+
+    neuro = np.ones((20, 2))
+    labels = np.full(20, None, dtype=object)
+
+    with pytest.raises(ValueError, match="two-dimensional"):
+        plot_data(neuro[:, 0], labels, sfreq=10.0)
+    with pytest.raises(ValueError, match="same number of samples"):
+        plot_data(neuro, labels[:-1], sfreq=10.0)
+    with pytest.raises(ValueError, match="positive and finite"):
+        plot_data(neuro, labels, sfreq=0.0)
+
+
+def test_plot_data_validates_display_window():
+    from vneurotk.viz import plot_data
+
+    neuro = np.ones((20, 2))
+    labels = np.full(20, None, dtype=object)
+
+    with pytest.raises(ValueError, match="start before end"):
+        plot_data(neuro, labels, sfreq=10.0, window=(10, 5))
+    with pytest.raises(ValueError, match="does not contain any samples"):
+        plot_data(neuro, labels, sfreq=10.0, window=(30, 40))
+
+
+def test_plot_data_requires_paired_trial_annotations():
+    from vneurotk.viz import plot_data
+
+    neuro = np.ones((20, 2))
+    labels = np.full(20, None, dtype=object)
+    trial = np.full(20, None, dtype=object)
+
+    with pytest.raises(ValueError, match="provided together"):
+        plot_data(neuro, labels, sfreq=10.0, trial=trial)
 
 
 def test_plot_data_with_trial_annotations():

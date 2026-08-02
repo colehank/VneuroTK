@@ -27,10 +27,10 @@ Path classes and data loaders (`EphysPath`, `MNEPath`, `VTKPath`, `read`).
 Neural-domain primitives (`NeuroData`, `TrialStructure`).
 :::
 
-:::{grid-item-card} Vision
+:::{grid-item-card} DNN Vision
 :link: api/vision
 :link-type: doc
-DNN vision feature extraction (`VisionModel`, `VisualRepresentations`, selectors).
+DNN feature extraction (`VisionModel`, `VisualRepresentations`, selectors).
 :::
 
 :::{grid-item-card} Datasets
@@ -39,9 +39,9 @@ DNN vision feature extraction (`VisionModel`, `VisualRepresentations`, selectors
 Sample dataset fetchers for tutorials and examples.
 :::
 
-:::{grid-item-card} Viz
+:::{grid-item-card} Visualization
 :link: api/viz
 :link-type: doc
-Visualization utilities.
+Matplotlib plots of stimulus timing and neural activity (`BaseData.plot`, `plot_data`). Separate from DNN vision extraction.
 :::
 ::::

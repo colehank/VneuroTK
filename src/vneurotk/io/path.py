@@ -109,7 +109,8 @@ class VTKPath:
         return self.root / f"{filename}{ext}"
 
     def load(self, pre_load: bool = False) -> BaseData:
-        """Load data described by this path into a :class:`BaseData`.
+        """Load data described by this path into a
+        :class:`~vneurotk.core.recording.BaseData`.
 
         For base :class:`VTKPath` instances pointing to a saved ``.h5`` file,
         loads via the internal HDF5 reader.  Typed subclasses override this
@@ -317,7 +318,7 @@ class EphysPath(VTKPath):
         )
 
     def load(self, pre_load: bool = False) -> BaseData:
-        """Load this Ephys session into a :class:`~vneurotk.neuro.base.BaseData`.
+        """Load this Ephys session into a :class:`~vneurotk.core.recording.BaseData`.
 
         Parameters
         ----------
@@ -377,7 +378,7 @@ class MNEPath(VTKPath):
         return self.root / f"{filename}{ext}"
 
     def load(self, pre_load: bool = False) -> BaseData:
-        """Load this MNE recording into a :class:`~vneurotk.neuro.base.BaseData`.
+        """Load this MNE recording into a :class:`~vneurotk.core.recording.BaseData`.
 
         Parameters
         ----------
@@ -452,7 +453,7 @@ class BIDSPath(VTKPath):
         return self._bids_path
 
     def load(self, pre_load: bool = False) -> BaseData:
-        """Load this BIDS recording into a :class:`~vneurotk.neuro.base.BaseData`.
+        """Load this BIDS recording into a :class:`~vneurotk.core.recording.BaseData`.
 
         Parameters
         ----------

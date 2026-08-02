@@ -38,6 +38,14 @@ jobs:
       - name: Test documentation source contract
         run: uv run --frozen --python=3.13 --group docs --group test pytest tests/test_docs.py
 
+      - name: Execute deterministic visualization notebooks
+        env:
+          MPLBACKEND: Agg
+        run: uv run --frozen --python=3.13 --group docs --extra viz --extra notebook python scripts/docs.py check-viz
+
+      - name: Check external documentation links
+        run: uv run --frozen --python=3.13 --group docs sphinx-build -b linkcheck -W --keep-going docs build/linkcheck
+
       - name: Build docs
         run: uv run --frozen --python=3.13 --group docs python scripts/docs.py build
 

@@ -54,7 +54,8 @@ class BaseData:
         Mutable dictionary compatible with :class:`VisionInfo`; commonly
         contains ``n_stim`` and ``stim_ids``.
     trial : np.ndarray | None
-        Trial-ID array of shape ``(ntime,)``.  ``np.nan`` outside trials.
+        Trial-ID array. Shape ``(ntime,)`` for continuous data or
+        ``(n_trials, n_timebins)`` for epochs data; ``np.nan`` outside trials.
     trial_info : dict | None
         Mutable dictionary compatible with :class:`TrialInfo`; commonly
         contains ``baseline`` and ``trial_window``.
@@ -194,8 +195,9 @@ class BaseData:
     def neuro(self) -> NeuroData:
         """Neural data as a :class:`NeuroData`.
 
-        Behaves like a plain ndarray; additionally exposes
-        ``.epochs`` and ``.continuous`` for trial-structured views.
+        Returns a :class:`~vneurotk.neuro.base.NeuroData` wrapper. Use
+        :attr:`~vneurotk.neuro.base.NeuroData.data` for the underlying NumPy
+        array; ``.epochs`` and ``.continuous`` provide trial-structured views.
         """
         if self._neuro is None and self._neuro_loader is not None:
             logger.info("Lazy-loading neuro data...")
@@ -499,9 +501,10 @@ class BaseData:
             For epochs data defaults to already-stored value or 0.
         vision_db : dict, list, np.ndarray, or None
             Stimulus image source.  Stored immediately as the Stimulus Set for
-            this Recording.  Can also be supplied later via
-            :meth:`extract_features`.  If a Stimulus Set is already attached,
-            it is replaced and an ``info`` message is logged.
+            this Recording.  It can also be supplied later to
+            :meth:`~vneurotk.vision.data.VisionData.extract_from` via
+            :attr:`vision`.  If a Stimulus Set is already attached, it is
+            replaced and an ``info`` message is logged.
         """
         if self.configured:
             logger.warning("re-configuring already configured BaseData, overwriting trial structure")
@@ -603,7 +606,15 @@ class BaseData:
         Returns
         -------
         matplotlib.figure.Figure
+
+        Raises
+        ------
+        ValueError
+            If ``data_mode="patterns"``, which has no time axis.
         """
+        if self.data_mode == "patterns":
+            raise ValueError("Pattern data has no time axis and cannot be plotted as a recording.")
+
         try:
             from vneurotk.viz.data import plot_data
         except ImportError as exc:
@@ -614,7 +625,7 @@ class BaseData:
         tw = self.trial_info["trial_window"] if self.trial_info is not None else None
 
         neuro = self.neuro.data
-        stim_labels: np.ndarray = self._stim_labels if self._stim_labels is not None else np.zeros(neuro.shape[0])
+        stim_labels = self._stim_labels
         trial = self.trial
         if self.data_mode == "epochs":
             neuro = neuro.reshape(-1, neuro.shape[-1])
@@ -622,6 +633,8 @@ class BaseData:
                 stim_labels = stim_labels.ravel()
             if trial is not None:
                 trial = trial.ravel()
+        if stim_labels is None:
+            stim_labels = np.full(neuro.shape[0], None, dtype=object)
 
         return plot_data(
             neuro=neuro,
@@ -649,7 +662,7 @@ class BaseData:
         compression_opts: Any = 4,
         chunk_target_bytes: int = 1024 * 1024,
     ) -> None:
-        """Persist the configured data to an HDF5 file.
+        """Persist data that is complete for its active mode to an HDF5 file.
 
         Parameters
         ----------
@@ -667,7 +680,7 @@ class BaseData:
         Raises
         ------
         RuntimeError
-            If :meth:`configure` has not been called yet.
+            If the data is incomplete for its active mode.
         """
         self._validate_state()
 

@@ -1,6 +1,6 @@
 # Examples
 
-Work through complete VneuroTK workflows in notebooks that combine explanation, code, and saved output. Documentation builds render the committed notebooks without executing them.
+Work through complete VneuroTK workflows in notebooks that combine explanation and code. Documentation builds render the committed notebooks without executing them; only notebooks that include committed output display saved results.
 
 ::::{grid} 1 2 2 2
 :gutter: 3
@@ -13,6 +13,14 @@ Build and inspect VneuroTK data objects across recording modes and sources.
 Core package; sample-backed sections identify additional requirements.
 :::
 
+:::{grid-item-card} Visualization
+:link: example_ipynb/viz
+:link-type: doc
+Build a synthetic evoked-response recording, inspect focused windows, and customize returned Matplotlib figures.
++++
+Requires the `viz` extra. Unlike DNN vision extraction, this plots neural recordings and stimulus timing.
+:::
+
 :::{grid-item-card} Path objects
 :link: example_ipynb/path
 :link-type: doc
@@ -21,7 +29,7 @@ Construct paths for electrophysiology, M/EEG, BIDS, and VneuroTK HDF5 data.
 Core path construction; BIDS integration requires the `mne` extra.
 :::
 
-:::{grid-item-card} Vision representations
+:::{grid-item-card} DNN vision representations
 :link: example_ipynb/vision
 :link-type: doc
 Configure a vision backend, select layers, and extract representations.
@@ -43,6 +51,7 @@ Requires M/EEG and vision extras, model assets, and the separately licensed samp
 Download the exact notebook sources rendered by this site:
 
 - <a href="../example_ipynb/data.ipynb" download>Neural data notebook</a>
+- <a href="../example_ipynb/viz.ipynb" download>Visualization notebook</a>
 - <a href="../example_ipynb/path.ipynb" download>Path notebook</a>
 - <a href="../example_ipynb/vision.ipynb" download>Vision notebook</a>
 - <a href="../example_ipynb/neurovision.ipynb" download>Neurovision notebook</a>

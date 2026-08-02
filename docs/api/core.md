@@ -8,6 +8,12 @@ Joint data object and shared primitives.
 .. autoclass:: vneurotk.core.recording.BaseData
    :members:
 ```
+## Data modes
+
+```{eval-rst}
+.. autodata:: vneurotk.core.recording.DataMode
+```
+
 ## Metadata dictionaries
 
 `NeuroInfo`, `VisionInfo`, and `TrialInfo` are `TypedDict` boundary types for the known metadata keys. Runtime values remain ordinary mutable dictionaries, so existing dict inputs, extra keys, persistence, and equality behavior remain compatible.

@@ -64,6 +64,5 @@ and 200 stimuli under `nod-meg/`. The MonkeyVision archive has 9 entries under
 - `ChProp_251024_FanFan_nsd1w_MSB.csv`
 
 ```{eval-rst}
-.. automodule:: vneurotk.datasets.sample
-   :members:
+.. autofunction:: vneurotk.datasets.sample.data_path
 ```

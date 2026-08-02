@@ -13,6 +13,8 @@ parts:
             title: Path system
           - file: usage/data
             title: Neural data
+          - file: usage/viz
+            title: Visualization
           - file: usage/vision_models
             title: Vision models and backends
           - file: usage/vision_alone
@@ -24,6 +26,8 @@ parts:
         sections:
           - file: example_ipynb/data
             title: Neural data notebook
+          - file: example_ipynb/viz
+            title: Visualization notebook
           - file: example_ipynb/path
             title: Path notebook
           - file: example_ipynb/vision
@@ -46,7 +50,7 @@ parts:
           - file: api/datasets
             title: Datasets
           - file: api/viz
-            title: Viz
+            title: Visualization
       - file: project
         title: Project
         sections:

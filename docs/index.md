@@ -33,13 +33,13 @@ Understand the VneuroTK HDF5 layout, persistence guarantees, and compatibility p
 :::{grid-item-card} Usage
 :link: usage
 :link-type: doc
-Learn individual tasks through notebook-native guides for paths, neural data, and vision extraction.
+Learn individual tasks through notebook-native guides for paths, neural data, recording visualization, and DNN vision extraction.
 :::
 
 :::{grid-item-card} Examples
 :link: examples
 :link-type: doc
-Follow complete notebooks with committed code and outputs.
+Follow complete notebooks for data, visualization, and DNN vision workflows.
 :::
 
 :::{grid-item-card} API reference
@@ -54,5 +54,9 @@ Look up the documented classes, functions, and modules.
 Contribute, get support, cite the toolkit, and review project policies.
 :::
 ::::
+
+## Visualization and DNN vision
+
+[Visualization](usage/viz.ipynb) uses the optional `viz` extra and Matplotlib to plot stimulus timing and neural recordings. [DNN vision](usage/vision_models.ipynb) uses `vneurotk.vision` and vision-backend extras to extract model representations from images. These are separate features and can be installed and used independently.
 
 See the [changelog](changelog.md) for release history.

@@ -6,6 +6,7 @@
     "usage/index.html",
     "usage/path/index.html",
     "usage/data/index.html",
+    "usage/viz/index.html",
     "usage/vision_models/index.html",
     "usage/vision_alone/index.html",
     "usage/vision_union/index.html",
@@ -13,6 +14,7 @@
     "example/nod-neurovision/index.html",
     "example_ipynb/data/index.html",
     "example_ipynb/path/index.html",
+    "example_ipynb/viz/index.html",
     "example_ipynb/vision/index.html",
     "example_ipynb/neurovision/index.html",
     "api/index.html",
@@ -34,21 +36,26 @@
     "changelog/index.html"
   ],
   "redirects": {
+    "usage/vision-models/index.html": "../vision_models/",
+    "file-formats/hdf5-recordings/index.html": "../../format/hdf5/",
     "example/nod-neurovision/index.html": "../../example_ipynb/neurovision/"
   },
   "notebook_downloads": [
     "usage/path.ipynb",
     "usage/data.ipynb",
+    "usage/viz.ipynb",
     "usage/vision_models.ipynb",
     "usage/vision_alone.ipynb",
     "usage/vision_union.ipynb",
     "example_ipynb/data.ipynb",
     "example_ipynb/path.ipynb",
+    "example_ipynb/viz.ipynb",
     "example_ipynb/vision.ipynb",
     "example_ipynb/neurovision.ipynb"
   ],
   "api_targets": [
     "vneurotk.core.recording.BaseData",
+    "vneurotk.core.recording.DataMode",
     "vneurotk.core.metadata.NeuroInfo",
     "vneurotk.core.metadata.VisionInfo",
     "vneurotk.core.metadata.TrialInfo",
@@ -60,6 +67,8 @@
     "vneurotk.io.path.MNEPath",
     "vneurotk.io.path.VTKPath",
     "vneurotk.io.path.BIDSPath",
+    "vneurotk.io.path.EPHYS_DTYPES",
+    "vneurotk.io.path.EPHYS_EXTENSIONS",
     "vneurotk.io.loader.read",
     "vneurotk.io.loader.LazyNeuroLoader",
     "vneurotk.io.loader.LazyH5Dict",
@@ -73,13 +82,23 @@
     "vneurotk.vision.model.selector.BlockLevelSelector",
     "vneurotk.vision.model.selector.AllLeafSelector",
     "vneurotk.vision.model.selector.CustomSelector",
+    "vneurotk.vision.model.backend.base.BaseBackend",
+    "vneurotk.vision.model.backend.transformers_backend.TransformersBackend",
+    "vneurotk.vision.model.backend.timm_backend.TimmBackend",
+    "vneurotk.vision.model.backend.thingsvision_backend.ThingsVisionBackend",
+    "vneurotk.vision.model.base.print_modules",
+    "vneurotk.vision._cache.CachedModel",
+    "vneurotk.vision._cache.find_cached_models",
+    "vneurotk.vision._cache.print_cached_models",
     "vneurotk.vision.representation.visual_representations.VisualRepresentations",
     "vneurotk.vision.representation.visual_representations.VisualRepresentation",
     "vneurotk.vision.image_source.ImageSource",
     "vneurotk.vision.meta.ExtractionProvenance",
     "vneurotk.vision.meta.ModelInfo",
     "vneurotk.vision.meta.ModuleInfo",
-    "vneurotk.datasets.sample",
-    "vneurotk.viz.data"
+    "vneurotk.datasets.sample.data_path",
+    "vneurotk.viz.data.plot_data",
+    "vneurotk.core.recording.BaseData.plot",
+    "vneurotk.utils.mne_utils.get_event_samples"
   ]
 }
