@@ -4601,8 +4601,10 @@ packaging = [
     { name = "twine" },
 ]
 test = [
+    { name = "bleach", extra = ["css"] },
     { name = "coverage" },
     { name = "pytest" },
+    { name = "pyyaml" },
 ]
 typecheck = [
     { name = "ty" },
@@ -4683,8 +4685,10 @@ packaging = [
     { name = "twine" },
 ]
 test = [
+    { name = "bleach", extras = ["css"] },
     { name = "coverage" },
     { name = "pytest" },
+    { name = "pyyaml" },
 ]
 typecheck = [{ name = "ty" }]
 

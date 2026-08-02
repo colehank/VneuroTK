@@ -58,8 +58,10 @@ lint = [
     "ruff",
 ]
 test = [
+    "bleach[css]",
     "coverage",
     "pytest",
+    "PyYAML",
 ]
 typecheck = [
     "ty",
