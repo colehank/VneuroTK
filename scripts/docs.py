@@ -181,11 +181,6 @@ def _run_sphinx(root: Path) -> None:
 
 def finalize_site(root: Path = ROOT) -> None:
     site = root / SITE_DIR
-    for notebook in discover_notebooks(root):
-        destination = site / notebook.relative_to(root / DOCS_DIR)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(notebook, destination)
-
     nested_404 = site / "404" / "index.html"
     root_404 = site / "404.html"
     if nested_404.is_file():
@@ -253,13 +248,6 @@ def validate_site(root: Path = ROOT) -> None:
         redirect = site / relative
         if f"url={target}" not in redirect.read_text(encoding="utf-8"):
             raise DocsError(f"documentation redirect does not target {target}: {relative}")
-    for relative in contract["notebook_downloads"]:
-        built = site / relative
-        source = root / "docs" / relative
-        if not built.is_file():
-            raise DocsError(f"missing source notebook download: {relative}")
-        if built.read_bytes() != source.read_bytes():
-            raise DocsError(f"source notebook download does not match: {relative}")
     for artifact in ("objects.inv", "sitemap.xml", ".nojekyll", "404.html"):
         if not (site / artifact).is_file():
             raise DocsError(f"missing documentation artifact: {artifact}")

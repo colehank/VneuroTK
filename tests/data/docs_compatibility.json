@@ -40,19 +40,6 @@
     "file-formats/hdf5-recordings/index.html": "../../format/hdf5/",
     "example/nod-neurovision/index.html": "../../example_ipynb/neurovision/"
   },
-  "notebook_downloads": [
-    "usage/path.ipynb",
-    "usage/data.ipynb",
-    "usage/viz.ipynb",
-    "usage/vision_models.ipynb",
-    "usage/vision_alone.ipynb",
-    "usage/vision_union.ipynb",
-    "example_ipynb/data.ipynb",
-    "example_ipynb/path.ipynb",
-    "example_ipynb/viz.ipynb",
-    "example_ipynb/vision.ipynb",
-    "example_ipynb/neurovision.ipynb"
-  ],
   "api_targets": [
     "vneurotk.core.recording.BaseData",
     "vneurotk.core.recording.DataMode",

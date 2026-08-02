@@ -45,13 +45,3 @@ Align NOD-MEG trials with vision-model features and persist the combined recordi
 Requires M/EEG and vision extras, model assets, and the separately licensed sample data.
 :::
 ::::
-
-## Source notebooks
-
-Download the exact notebook sources rendered by this site:
-
-- <a href="../example_ipynb/data.ipynb" download>Neural data notebook</a>
-- <a href="../example_ipynb/viz.ipynb" download>Visualization notebook</a>
-- <a href="../example_ipynb/path.ipynb" download>Path notebook</a>
-- <a href="../example_ipynb/vision.ipynb" download>Vision notebook</a>
-- <a href="../example_ipynb/neurovision.ipynb" download>Neurovision notebook</a>

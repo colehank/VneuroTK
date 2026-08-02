@@ -57,6 +57,6 @@ Contribute, get support, cite the toolkit, and review project policies.
 
 ## Visualization and DNN vision
 
-[Visualization](usage/viz.ipynb) uses the optional `viz` extra and Matplotlib to plot stimulus timing and neural recordings. [DNN vision](usage/vision_models.ipynb) uses `vneurotk.vision` and vision-backend extras to extract model representations from images. These are separate features and can be installed and used independently.
+[Visualization](usage/viz) uses the optional `viz` extra and Matplotlib to plot stimulus timing and neural recordings. [DNN vision](usage/vision_models) uses `vneurotk.vision` and vision-backend extras to extract model representations from images. These are separate features and can be installed and used independently.
 
 See the [changelog](changelog.md) for release history.

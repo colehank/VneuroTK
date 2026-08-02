@@ -117,14 +117,12 @@ def test_notebook_sources_are_clean_and_consistent() -> None:
         node = json.loads(notebook.read_text(encoding="utf-8"))
         assert "widgets" not in node.get("metadata", {})
         headings: list[str] = []
-        markdown_sources: list[str] = []
         has_png = False
         for cell in node["cells"]:
             raw_source = cell["source"]
             source = "".join(raw_source) if isinstance(raw_source, list) else raw_source
             if cell["cell_type"] == "markdown":
                 headings.extend(line for line in source.splitlines() if line.startswith("# "))
-                markdown_sources.append(source)
             elif cell["cell_type"] == "code":
                 ast.parse(source)
             for output in cell.get("outputs", []):
@@ -136,8 +134,8 @@ def test_notebook_sources_are_clean_and_consistent() -> None:
                 assert not transient_output.search(stream), notebook
         assert len(headings) == 1, notebook
         assert has_png == (notebook in png_notebooks), notebook
-        assert f'href="../{notebook.stem}.ipynb"' in "\n".join(markdown_sources), notebook
         serialized = notebook.read_text(encoding="utf-8")
+        assert " download>" not in serialized and ".ipynb" not in serialized, notebook
         assert not any(value in serialized for value in forbidden), notebook
 
 
@@ -237,7 +235,7 @@ def test_sphinx_dependencies_replace_zensical_stack() -> None:
 
 
 @pytest.mark.skipif(SITE is None, reason="requires VNEUROTK_DOCS_SITE")
-def test_built_site_preserves_routes_and_notebook_downloads() -> None:
+def test_built_site_preserves_routes_and_renders_notebooks() -> None:
     from sphinx.util.inventory import InventoryFile
 
     assert SITE is not None
@@ -246,10 +244,17 @@ def test_built_site_preserves_routes_and_notebook_downloads() -> None:
     for relative, target in CONTRACT["redirects"].items():
         redirect = (SITE / relative).read_text(encoding="utf-8")
         assert f"url={target}" in redirect
-    for relative in CONTRACT["notebook_downloads"]:
-        built = SITE / relative
-        source = ROOT / "docs" / relative
-        assert built.read_bytes() == source.read_bytes()
+    output_notebooks = {"usage/path", "usage/data", "usage/viz", "example_ipynb/viz"}
+    for docname in (
+        *(f"usage/{stem}" for stem in USAGE_STEMS),
+        *(f"example_ipynb/{stem}" for stem in EXAMPLE_STEMS),
+    ):
+        page = SITE / docname / "index.html"
+        html = page.read_text(encoding="utf-8")
+        assert 'class="cell_input docutils container"' in html, docname
+        assert ('class="cell_output docutils container"' in html) == (docname in output_notebooks), docname
+        assert " download>" not in html, docname
+    assert not list(SITE.rglob("*.ipynb"))
     inventory_path = SITE / "objects.inv"
     assert inventory_path.is_file()
     inventory = InventoryFile.loads(inventory_path.read_bytes(), uri="")

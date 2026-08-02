@@ -1,6 +1,6 @@
 # Usage
 
-Each guide is a rendered notebook: narrative, runnable Python cells, and any committed outputs stay together as one source. Documentation builds never execute the notebooks; use the download link on a guide when you want to run it locally.
+Each guide is a rendered notebook whose narrative, runnable Python cells, and committed outputs can be read inline on this site. Documentation builds never execute the notebooks.
 
 ::::{grid} 1 2 2 2
 :gutter: 3

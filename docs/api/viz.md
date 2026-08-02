@@ -1,6 +1,6 @@
 # Visualization
 
-Matplotlib plots for inspecting stimulus timing and neural activity. This API is separate from [`vneurotk.vision`](vision.md), which extracts DNN representations from images. Install plotting support with `vneurotk[viz]`; see the [visualization guide](../usage/viz.ipynb) for runnable examples.
+Matplotlib plots for inspecting stimulus timing and neural activity. This API is separate from [`vneurotk.vision`](vision.md), which extracts DNN representations from images. Install plotting support with `vneurotk[viz]`; see the [visualization guide](../usage/viz) for runnable examples.
 
 ## Supported data and units
 
@@ -33,4 +33,4 @@ Use the lower-level function for arrays that are not wrapped in `BaseData`. `neu
 .. autofunction:: vneurotk.viz.data.plot_data
 ```
 
-See the [visualization example](../example_ipynb/viz.ipynb) for a complete synthetic evoked-response workflow and the [DNN vision API](vision.md) when the goal is image feature extraction rather than plotting.
+See the [visualization example](../example_ipynb/viz) for a complete synthetic evoked-response workflow and the [DNN vision API](vision.md) when the goal is image feature extraction rather than plotting.

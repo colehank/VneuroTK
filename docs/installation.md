@@ -94,6 +94,6 @@ uv sync --group dev --extra vision --extra viz
 
 ## Next steps
 
-- [Visualize neural recordings](usage/viz.ipynb) with `BaseData.plot` or `vneurotk.viz.plot_data` after installing `viz`.
-- [Configure DNN vision models](usage/vision_models.ipynb) after installing the backend extra you need.
+- [Visualize neural recordings](usage/viz) with `BaseData.plot` or `vneurotk.viz.plot_data` after installing `viz`.
+- [Configure DNN vision models](usage/vision_models) after installing the backend extra you need.
 - Compare the separate [Visualization API](api/viz.md) and [DNN Vision API](api/vision.md) before choosing extras.
