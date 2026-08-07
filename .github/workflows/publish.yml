@@ -27,7 +27,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
           fetch-depth: 0
@@ -56,7 +56,7 @@ jobs:
         run: test -s "CHANGELOG/$RELEASE_VERSION.md"
 
       # Cache disabled so release artifacts never depend on a mutable cache.
-      - uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: false
 
@@ -126,7 +126,7 @@ jobs:
           )
 
       - name: Upload immutable workflow distribution artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist-${{ steps.release.outputs.tag }}
           path: dist/
@@ -148,7 +148,7 @@ jobs:
       url: https://pypi.org/p/vneurotk/${{ needs.build.outputs.version }}
     steps:
       - name: Download distribution from this workflow run
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist-${{ needs.build.outputs.tag }}
           path: dist/
@@ -175,9 +175,9 @@ jobs:
           PY
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: "dist/*"
 
       - name: Publish to PyPI with Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
