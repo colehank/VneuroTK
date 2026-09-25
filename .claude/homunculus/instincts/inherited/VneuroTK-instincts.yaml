@@ -1,0 +1,318 @@
+# Instincts generated from https://github.com/colehank/VneuroTK
+# Generated: 2026-07-31T07:29:35.445Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: VneuroTK-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: docs
+
+## Evidence
+
+- 1 commits analyzed
+- Detected conventional commit pattern
+- Examples: docs: render notebooks as documentation pages
+
+---
+id: VneuroTK-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Commit Length
+
+## Action
+
+Keep commit messages concise (~45 characters)
+
+## Evidence
+
+- Average commit message length: 45 chars
+- Based on 1 commits
+
+---
+id: VneuroTK-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: VneuroTK-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: VneuroTK-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: VneuroTK-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/colehank/VneuroTK
+---
+
+# VneuroTK Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: vneurotk-instinct-file-naming
+trigger: "When creating a new Python file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct File Naming
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.files
+
+---
+id: vneurotk-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Function Naming
+
+## Action
+
+Use camelCase for the function name
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: vneurotk-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Class Naming
+
+## Action
+
+Use PascalCase for the class name
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: vneurotk-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: vneurotk-instinct-import-style
+trigger: "When importing modules within the package"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in importStyle
+
+---
+id: vneurotk-instinct-export-style
+trigger: "When exporting functions or classes from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle
+
+---
+id: vneurotk-instinct-commit-format
+trigger: "When making a documentation-related commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Commit Format
+
+## Action
+
+Prefix the commit message with 'docs:' followed by a concise description
+
+## Evidence
+
+- Seen in commit 'docs: render notebooks as documentation pages'
+- Pattern in commits.prefixes
+
+---
+id: vneurotk-instinct-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Commit Length
+
+## Action
+
+Keep the commit message concise, around 45 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: vneurotk-instinct-test-location
+trigger: "When adding new tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Test Location
+
+## Action
+
+Place test files in the separate 'tests' folder
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+
+---
+id: vneurotk-instinct-docs-workflow
+trigger: "When configuring documentation automation"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: colehank/VneuroTK
+---
+
+# Vneurotk Instinct Docs Workflow
+
+## Action
+
+Use a workflow file located at '.github/workflows/docs.yml'
+
+## Evidence
+
+- Pattern in architecture.configFiles
+
